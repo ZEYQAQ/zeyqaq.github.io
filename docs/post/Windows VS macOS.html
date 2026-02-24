@@ -10,13 +10,13 @@
         let theme = localStorage.getItem("meek_theme") || "light";
         document.documentElement.setAttribute("data-color-mode", theme);
     </script>
-<meta name="description" content="今天面试了两个衡水系中学，点击就送。">
-<meta property="og:title" content="衡水系私立中学">
-<meta property="og:description" content="今天面试了两个衡水系中学，点击就送。">
+<meta name="description" content="mac的设计思路是在的，我现在用着很上手了，比如pixpin这个软件在mac上将在win的很多功能转免，截图很方便。">
+<meta property="og:title" content="Windows VS macOS">
+<meta property="og:description" content="mac的设计思路是在的，我现在用着很上手了，比如pixpin这个软件在mac上将在win的很多功能转免，截图很方便。">
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://zeyqaq.github.io/post/heng-shui-xi-si-li-zhong-xue.html">
+<meta property="og:url" content="https://zeyqaq.github.io/post/Windows%20VS%20macOS.html">
 <meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
-<title>衡水系私立中学</title>
+<title>Windows VS macOS</title>
 
 
 
@@ -49,7 +49,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 
 <body>
     <div id="header">
-<h1 class="postTitle">衡水系私立中学</h1>
+<h1 class="postTitle">Windows VS macOS</h1>
 <div class="title-right">
     <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
         <svg class="octicon" width="16" height="16">
@@ -57,7 +57,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
         </svg>
     </a>
     
-    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/34" target="_blank" class="btn btn-invisible circle" title="Issue">
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/58" target="_blank" class="btn btn-invisible circle" title="Issue">
         <svg class="octicon" width="16" height="16">
             <path id="pathIssue" fill-rule="evenodd"></path>
         </svg>
@@ -73,8 +73,12 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 </div>
 </div>
     <div id="content">
-<div class="markdown-body" id="postBody"><p>今天面试了两个衡水系中学，点击就送。</p>
-<p>只是钱少得可怜，工作很辛苦。</p></div>
+<div class="markdown-body" id="postBody"><p>mac的设计思路是在的，我现在用着很上手了，比如pixpin这个软件在mac上将在win的很多功能转免，截图很方便。比如台前调度在多屏幕（大屏）的使用很舒服，加上mac可以用键盘win+上下左右键切换桌面，画面要比win的alt+tab来的舒服的多。mac可以直接装docker，不需要win那样对系统（专业版）有限制，不需要wsl2转译，而且动画流畅，可以一直不关机。可以用iPhone镜像上班摸鱼，可以用手表无缝开机，可以用dock栏快速开软件/保留后台。<br>
+这些优点在办公领域，是让人很舒服的，会让人喜欢拿他来办公。</p>
+<p>缺点：这玩意的内存贵的跟金子一样，不能随意扩，32g的一台主机能买2台16g的主机了。对win的映射是一坨，连跳板机会让人想吐。屏幕1080p会特别糊，对比1080p的win，win会锐的就像是打印到纸上一样，mac就像虚焦的相机。存储贵的不行，不给usb传统的口，必须转接，有些快捷键必须按照他的思想来（比如中英文切换，必须用他的键盘，用win就会恶心你，command和ctrl换位）</p>
+<p>第一方的软件很牛，音乐可以无缝在手机电脑流转，开一次会员就可以多平台用，通知可以同步到电脑，日历和iPhone同步，事项只需要记一次，备忘录无缝流转，iCloud可以把所有文件（几乎所有，除应用程序）存住，而且iCloud很便宜。</p>
+<p>如果有苹果生态，且用于办公，这玩意很值，而且很有趣。</p>
+<p>打游戏，不要用，我尝试了crossover，收费且垃圾，连cs2都打不了，千万不要选这个。</p></div>
 <div style="font-size:small;margin-top:8px;float:right;"></div>
 
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
@@ -133,7 +137,11 @@ console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
 document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
-
+cmButton=document.getElementById("cmButton");
+    span=document.createElement("span");
+    span.setAttribute("class","Counter");
+    span.innerHTML="1";
+    cmButton.appendChild(span);
 
 
 function openComments(){

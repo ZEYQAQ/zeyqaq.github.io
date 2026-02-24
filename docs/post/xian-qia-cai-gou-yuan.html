@@ -10,13 +10,13 @@
         let theme = localStorage.getItem("meek_theme") || "light";
         document.documentElement.setAttribute("data-color-mode", theme);
     </script>
-<meta name="description" content="今天面试了两个衡水系中学，点击就送。">
-<meta property="og:title" content="衡水系私立中学">
-<meta property="og:description" content="今天面试了两个衡水系中学，点击就送。">
+<meta name="description" content="因为要买gpu机器，所以和这些主流的国内外云厂商打了一下交道。">
+<meta property="og:title" content="显卡采购员">
+<meta property="og:description" content="因为要买gpu机器，所以和这些主流的国内外云厂商打了一下交道。">
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://zeyqaq.github.io/post/heng-shui-xi-si-li-zhong-xue.html">
+<meta property="og:url" content="https://zeyqaq.github.io/post/xian-qia-cai-gou-yuan.html">
 <meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
-<title>衡水系私立中学</title>
+<title>显卡采购员</title>
 
 
 
@@ -49,7 +49,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 
 <body>
     <div id="header">
-<h1 class="postTitle">衡水系私立中学</h1>
+<h1 class="postTitle">显卡采购员</h1>
 <div class="title-right">
     <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
         <svg class="octicon" width="16" height="16">
@@ -57,7 +57,7 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
         </svg>
     </a>
     
-    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/34" target="_blank" class="btn btn-invisible circle" title="Issue">
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/59" target="_blank" class="btn btn-invisible circle" title="Issue">
         <svg class="octicon" width="16" height="16">
             <path id="pathIssue" fill-rule="evenodd"></path>
         </svg>
@@ -73,8 +73,20 @@ body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;
 </div>
 </div>
     <div id="content">
-<div class="markdown-body" id="postBody"><p>今天面试了两个衡水系中学，点击就送。</p>
-<p>只是钱少得可怜，工作很辛苦。</p></div>
+<div class="markdown-body" id="postBody"><p>因为要买gpu机器，所以和这些主流的国内外云厂商打了一下交道。发现aws能成是有原因的。<br>
+给折扣、给免费代金券、情绪价值拉满，除了贵以外没有任何缺点。（唯二缺点可能是控制台概率抽风）<br>
+azure是微软外包给了各级代理，感觉有点奇怪。分到了粤海街道的一家一级代理报价。<br>
+腾讯云就是各种都是工单，什么都很正规，但是什么都要等，等流程，等审批。<br>
+华为云就是，在电话，在微信就把事情聊了，秒回，很拼，报价能在一中午把业务上线全搞出来。<br>
+火山引擎就处于国内外中间，给人感觉是国内厂商，又感觉是国外厂商，说不出来的那种亲切又疏离的感觉。<br>
+阿里，这个就是经典阿里，家大业大，什么都卖，什么货都能给你搞到，而且跨云也做得很好，不想垄断你，给你个key你可以在世界各地随便调。<br>
+因为要买gpu机器，所以和这些主流的国内外云厂商打了一下交道。发现aws能成是有原因的。<br>
+给折扣、给免费代金券、情绪价值拉满，除了贵以外没有任何缺点。（唯二缺点可能是控制台概率抽风）<br>
+azure是微软外包给了各级代理，感觉有点奇怪。分到了粤海街道的一家一级代理报价。<br>
+腾讯云就是各种都是工单，什么都很正规，但是什么都要等，等流程，等审批。<br>
+华为云就是，在电话，在微信就把事情聊了，秒回，很拼，报价能在一中午把业务上线全搞出来。<br>
+火山引擎就处于国内外中间，给人感觉是国内厂商，又感觉是国外厂商，说不出来的那种亲切又疏离的感觉。<br>
+阿里，这个就是经典阿里，家大业大，什么都卖，什么货都能给你搞到，而且跨云也做得很好，不想垄断你，给你个key你可以在世界各地随便调。</p></div>
 <div style="font-size:small;margin-top:8px;float:right;"></div>
 
 <button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
@@ -133,7 +145,11 @@ console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 
 <script>
 document.getElementById("pathHome").setAttribute("d",IconList["home"]);
 document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
-
+cmButton=document.getElementById("cmButton");
+    span=document.createElement("span");
+    span.setAttribute("class","Counter");
+    span.innerHTML="1";
+    cmButton.appendChild(span);
 
 
 function openComments(){

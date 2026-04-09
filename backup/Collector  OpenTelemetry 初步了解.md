@@ -120,7 +120,7 @@ go install github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemet
 docker run -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 -p 127.0.0.1:55679:55679 otel/opentelemetry-collector-contrib:0.149.0 2>&1 | tee collector-output.txt # 可选择将输出保存，以便后续搜索
 ```
 
-![PixPin_2026-04-09_10-24-05](/Users/zeyqaq/Library/Mobile Documents/com~apple~CloudDocs/读书会分享/Collector  OpenTelemetry 初步了解.assets/PixPin_2026-04-09_10-24-05.jpg)
+![Image](https://github.com/user-attachments/assets/932fca01-98ce-4d19-b152-08a696cde19a)
 
 
 

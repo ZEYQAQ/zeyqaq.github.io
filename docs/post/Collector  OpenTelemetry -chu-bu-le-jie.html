@@ -205,7 +205,7 @@ go install github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemet
 </code></pre>
 <pre class="notranslate"><code class="notranslate">docker run -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 -p 127.0.0.1:55679:55679 otel/opentelemetry-collector-contrib:0.149.0 2&gt;&amp;1 | tee collector-output.txt # 可选择将输出保存，以便后续搜索
 </code></pre>
-<p>![PixPin_2026-04-09_10-24-05](/Users/zeyqaq/Library/Mobile Documents/com<del>apple</del>CloudDocs/读书会分享/Collector  OpenTelemetry 初步了解.assets/PixPin_2026-04-09_10-24-05.jpg)</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/932fca01-98ce-4d19-b152-08a696cde19a"><img src="https://github.com/user-attachments/assets/932fca01-98ce-4d19-b152-08a696cde19a" alt="Image" style="max-width: 100%;"></a></p>
 <h2>配置与所在位置（<a href="https://opentelemetry.io/zh/docs/collector/configuration/%EF%BC%89%EF%BC%88%E6%AD%A4%E6%96%87%E6%A1%A3%E5%8C%85%E5%90%AB%E6%9C%80%E5%A4%9A%E8%BF%90%E7%BB%B4%E4%BE%A7%E5%AD%98%E5%9C%A8%E7%9A%84%E9%97%AE%E9%A2%98%EF%BC%81%EF%BC%89" rel="nofollow">https://opentelemetry.io/zh/docs/collector/configuration/）（此文档包含最多运维侧存在的问题！）</a></h2>
 <p>默认情况下，Collector 配置文件位于 <code class="notranslate">/etc/&lt;otel-directory&gt;/config.yaml</code>，其中 <code class="notranslate">&lt;otel-directory&gt;</code> 可以是 <code class="notranslate">otelcol</code>、<code class="notranslate">otelcol-contrib</code> 或其他值，具体取决于你使用的 Collector 版本或发行版。</p>
 <p>任何 Collector 配置文件的结构都由四类访问遥测数据的管道组件组成：</p>

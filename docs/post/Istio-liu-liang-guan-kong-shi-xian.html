@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="1、下载x86（记得指定linux
+
+```
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.1 TARGET_OS=Linux TARGET_ARCH=x86_64 sh -
+```
+
+2、发送到/eddie
+
+```
+#发送到/eddie
+cd /eddie
+unzip istio-1.29.1.zip
+cd istio-1.29.1
+export PATH=$PWD/bin:$PATH
+```
+
+下载完成
+
+----
+
+### 平台准备
+
+```
+Istio 1.29 支持以下这些 Kubernetes 版本： 1.31, 1.32, 1.33, 1.34, 1.35。">
+<meta property="og:title" content="Istio流量管控实现">
+<meta property="og:description" content="1、下载x86（记得指定linux
+
+```
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.1 TARGET_OS=Linux TARGET_ARCH=x86_64 sh -
+```
+
+2、发送到/eddie
+
+```
+#发送到/eddie
+cd /eddie
+unzip istio-1.29.1.zip
+cd istio-1.29.1
+export PATH=$PWD/bin:$PATH
+```
+
+下载完成
+
+----
+
+### 平台准备
+
+```
+Istio 1.29 支持以下这些 Kubernetes 版本： 1.31, 1.32, 1.33, 1.34, 1.35。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/Istio-liu-liang-guan-kong-shi-xian.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>Istio流量管控实现</title>
+<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+<style>.markdown-alert{padding:0.5rem 1rem;margin-bottom:1rem;border-left:.25em solid var(--borderColor-default,var(--color-border-default));}.markdown-alert .markdown-alert-title {display:flex;font-weight:var(--base-text-weight-medium,500);align-items:center;line-height:1;}.markdown-alert>:first-child {margin-top:0;}.markdown-alert>:last-child {margin-bottom:0;}</style><style>.markdown-alert.markdown-alert-tip {border-left-color:var(--borderColor-success-emphasis, var(--color-success-emphasis));background-color:var(--color-success-subtle);}.markdown-alert.markdown-alert-tip .markdown-alert-title {color: var(--fgColor-success,var(--color-success-fg));}</style>
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">Istio流量管控实现</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/69" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>1、下载x86（记得指定linux</p>
+<pre class="notranslate"><code class="notranslate">curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.29.1 TARGET_OS=Linux TARGET_ARCH=x86_64 sh -
+</code></pre>
+<p>2、发送到/eddie</p>
+<pre class="notranslate"><code class="notranslate">#发送到/eddie
+cd /eddie
+unzip istio-1.29.1.zip
+cd istio-1.29.1
+export PATH=$PWD/bin:$PATH
+</code></pre>
+<p>下载完成</p>
+<hr>
+<h3>平台准备</h3>
+<pre class="notranslate"><code class="notranslate">Istio 1.29 支持以下这些 Kubernetes 版本： 1.31, 1.32, 1.33, 1.34, 1.35。（tianti是1.31)
+</code></pre>
+<p>安装完成后</p>
+<p>配置 <a href="https://support.huaweicloud.com/intl/productdesc-elb/en-us_topic_0015479966.html" rel="nofollow">ELB</a> 以暴露 Istio 入口网关（如果需要，本次演示未使用）。</p>
+<ul>
+<li>
+<p><a href="https://console.huaweicloud.com/vpc/?region=ap-southeast-1#/elbs/createEnhanceElb" rel="nofollow">创建弹性负载均衡器</a></p>
+</li>
+<li>
+<p>绑定 ELB 实例到 <code class="notranslate">istio-ingressgateway</code> 服务</p>
+<p>将 ELB 实例 ID 和 <code class="notranslate">loadBalancerIP</code> 设为 <code class="notranslate">istio-ingressgateway</code>。</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f - &lt;&lt;EOF
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubernetes.io/elb.class: union
+    kubernetes.io/elb.id: 4ee43d2b-cec5-4100-89eb-2f77837daa63 # ELB ID
+    kubernetes.io/elb.lb-algorithm: ROUND_ROBIN
+  labels:
+    app: istio-ingressgateway
+    install.operator.istio.io/owning-resource: unknown
+    install.operator.istio.io/owning-resource-namespace: istio-system
+    istio: ingressgateway
+    istio.io/rev: default
+    operator.istio.io/component: IngressGateways
+    operator.istio.io/managed: Reconcile
+    operator.istio.io/version: 1.9.0
+    release: istio
+  name: istio-ingressgateway
+  namespace: istio-system
+spec:
+  clusterIP: 10.247.7.192
+  externalTrafficPolicy: Cluster
+  loadBalancerIP: 119.8.36.132     ## ELB EIP
+  ports:
+  - name: status-port
+    nodePort: 32484
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
+  - name: http2
+    nodePort: 30294
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    nodePort: 31301
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+  - name: tcp
+    nodePort: 30229
+    port: 31400
+    protocol: TCP
+    targetPort: 31400
+  - name: tls
+    nodePort: 32028
+    port: 15443
+    protocol: TCP
+    targetPort: 15443
+  selector:
+    app: istio-ingressgateway
+    istio: ingressgateway
+  sessionAffinity: None
+  type: LoadBalancer
+EOF
+
+</code></pre>
+</li>
+</ul>
+<hr>
+<h3>Istio 使用的端口</h3>
+<p>Istio Sidecar 代理（Envoy）使用以下端口和协议。</p>
+<p>为避免与 Sidecar 发生端口冲突，应用程序不应使用 Envoy 所使用的任何端口。</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>端口</th>
+<th>协议</th>
+<th>描述</th>
+<th>仅限 Pod 内部</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>15000</td>
+<td>TCP</td>
+<td>Envoy 管理端口（命令/诊断）</td>
+<td>是</td>
+</tr>
+<tr>
+<td>15001</td>
+<td>TCP</td>
+<td>Envoy 出站</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15002</td>
+<td>TCP</td>
+<td>故障检测侦听端口</td>
+<td>是</td>
+</tr>
+<tr>
+<td>15004</td>
+<td>HTTP</td>
+<td>调试端口</td>
+<td>是</td>
+</tr>
+<tr>
+<td>15006</td>
+<td>TCP</td>
+<td>Envoy 入站</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15008</td>
+<td>H2</td>
+<td>HBONE mTLS 隧道端口</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15020</td>
+<td>HTTP</td>
+<td>从 Istio 代理、Envoy 和应用程序合并的 Prometheus 遥测</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15021</td>
+<td>HTTP</td>
+<td>健康检查</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15053</td>
+<td>DNS</td>
+<td>DNS 端口，如果启用了捕获</td>
+<td>是</td>
+</tr>
+<tr>
+<td>15090</td>
+<td>HTTP</td>
+<td>Envoy Prometheus 遥测</td>
+<td>否</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>Istio 控制平面（istiod）使用以下端口和协议。</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>端口</th>
+<th>协议</th>
+<th>描述</th>
+<th>仅限本地主机</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>443</td>
+<td>HTTPS</td>
+<td>Webhook 服务端口</td>
+<td>否</td>
+</tr>
+<tr>
+<td>8080</td>
+<td>HTTP</td>
+<td>调试接口（已弃用，仅限容器端口）</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15010</td>
+<td>GRPC</td>
+<td>XDS 和 CA 服务（纯文本，仅用于安全网络）</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15012</td>
+<td>GRPC</td>
+<td>XDS 和 CA 服务（TLS 和 mTLS，推荐用于生产）</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15014</td>
+<td>HTTP</td>
+<td>控制平面监控</td>
+<td>否</td>
+</tr>
+<tr>
+<td>15017</td>
+<td>HTTPS</td>
+<td>Webhook 容器端口，从 443 转发</td>
+<td>否</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<hr>
+<pre class="notranslate"><code class="notranslate">istioctl install
+</code></pre>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/be11471f-e743-4ea1-badd-ad9ebcf9d7e9"><img src="https://github.com/user-attachments/assets/be11471f-e743-4ea1-badd-ad9ebcf9d7e9" alt="Image" style="max-width: 100%;"></a></p>
+<hr>
+<h3>卸载 Istio</h3>
+<p>要从集群中完整卸载 Istio，运行下面命令：</p>
+<pre class="notranslate"><code class="notranslate">$ istioctl uninstall --purge
+</code></pre>
+<p>可选的 <code class="notranslate">--purge</code> 参数将移除所有 Istio 资源，包括可能被其他 Istio 控制平面共享的、集群范围的资源。</p>
+<p>或者，只移除指定的 Istio 控制平面，运行以下命令：</p>
+<pre class="notranslate"><code class="notranslate">$ istioctl uninstall &lt;your original installation options&gt;
+</code></pre>
+<p>或</p>
+<pre class="notranslate"><code class="notranslate">$ istioctl manifest generate &lt;your original installation options&gt; | kubectl delete --ignore-not-found=true -f -
+</code></pre>
+<p>控制平面的命名空间（例如：<code class="notranslate">istio-system</code>）默认不会被移除。 如果确认不再需要，用下面命令移除该命名空间：</p>
+<pre class="notranslate"><code class="notranslate">$ kubectl delete namespace istio-system
+</code></pre>
+<hr>
+<h3>体验流量镜像（或叫影子流量）</h3>
+<p>流量镜像，也称为影子流量，是一种以尽可能低的风险允许负责功能特性的团队改动生产环境的强大理念。 镜像会将实时流量的副本发送到镜像服务。镜像流量发生在主服务的关键请求路径之外。</p>
+<div class="markdown-alert markdown-alert-tip"><p class="markdown-alert-title"><svg class="octicon octicon-light-bulb mr-2" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path d="M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"></path></svg>Tip</p>
+<p>Kubernetes Gateway API CRD</p>
+<p>Gateway API 是 Kubernetes 官方推出的<strong>下一代流量管理标准</strong>，用来替代传统的 Ingress 资源。CRD（Custom Resource Definition）是它的自定义资源定义。</p>
+<p>Gateway API 可以类比ingress，不过ingress本质上是nginx，协议基本只有http；而Gateway API是GatewayClass → Gateway → Route，职责分离，支持HTTP、TCP、TLS、gRPC 等，原生支持流量分流、Header 匹配、镜像等，在不同厂商云服务统一标准，跨实现可移植。</p>
+<p>也就是说在后续的k8s中，istio是作为标准组件的一环，api也不再是单独的istio api，而是更“标准”的gateway api。当然，这里仍然使用istio api演示～</p>
+</div>
+<p>部署 <code class="notranslate">httpbin-v1</code>：</p>
+<pre class="notranslate"><code class="notranslate">kubectl create -f - &lt;&lt;EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin-v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+    spec:
+      containers:
+      - image: docker.io/kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        command: ["gunicorn", "--access-logfile", "-", "-b", "0.0.0.0:80", "httpbin:app"]
+        ports:
+        - containerPort: 80
+EOF
+</code></pre>
+<p>部署 <code class="notranslate">httpbin-v2</code>：</p>
+<pre class="notranslate"><code class="notranslate">kubectl create -f - &lt;&lt;EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v2
+    spec:
+      containers:
+      - image: docker.io/kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        command: ["gunicorn", "--access-logfile", "-", "-b", "0.0.0.0:80", "httpbin:app"]
+        ports:
+        - containerPort: 80
+EOF
+</code></pre>
+<p>查看已经部署的资源：</p>
+<pre class="notranslate"><code class="notranslate">kubectl get all -l app=httpbin
+
+
+NAME                              READY     STATUS    RESTARTS   AGE
+pod/httpbin-v1-84bf94b48-wtv2g    1/1       Running   0          4m1s
+pod/httpbin-v2-585bf46f77-qdmj5   1/1       Running   0          3m16s
+
+NAME              TYPE        CLUSTER-IP        EXTERNAL-IP   PORT(S)    AGE
+service/httpbin   ClusterIP   192.168.200.129   &lt;none&gt;        8000/TCP   2m33s
+
+#Service 会把流量轮询分发到这两个 Pod 上。Istio 做版本路由的基础——先让多个版本的 Pod 都挂在同一个 Service 下。
+
+
+
+NAME                                    DESIRED   CURRENT   READY     AGE
+replicaset.apps/httpbin-v1-84bf94b48    1         1         1         4m1s
+replicaset.apps/httpbin-v2-585bf46f77   1         1         1         3m16s
+
+#ReplicaSet是 Deployment 自动管理的中间层。Deployment 做滚动更新时，会创建新的 ReplicaSet 启动新 Pod，同时缩减旧 ReplicaSet 的 Pod，以此实现平滑升级。
+</code></pre>
+<p>部署用于向 <code class="notranslate">httpbin</code> 服务发送请求的 <code class="notranslate">curl</code> 工作负载：</p>
+<pre class="notranslate"><code class="notranslate">cat &lt;&lt;EOF | kubectl create -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl
+  template:
+    metadata:
+      labels:
+        app: curl
+    spec:
+      containers:
+      - name: curl
+        image: curlimages/curl
+        command: ["/bin/sleep","3650d"]
+        imagePullPolicy: IfNotPresent
+EOF
+</code></pre>
+<p><em>为这个curl工作负载注入sidecar</em></p>
+<pre class="notranslate"><code class="notranslate"># 确保 namespace 开启了自动注入
+kubectl label namespace default istio-injection=enabled --overwrite
+
+# 重建 curl Pod（让 sidecar 注入）
+kubectl delete pod curl-64b5f558b9-m9zdh
+</code></pre>
+<p>创建一个默认路由规则，将所有流量路由到服务的 <code class="notranslate">v1</code> 版本：</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f - &lt;&lt;EOF
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - httpbin
+  http:
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+      weight: 100
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: httpbin
+spec:
+  host: httpbin
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+EOF
+</code></pre>
+<p>现在所有流量都指向 <code class="notranslate">httpbin:v1</code> 服务，并向此服务发送请求：</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec deploy/curl -c curl -- curl -sS http://httpbin:8000/headers
+
+#如果版本较低，不支持deployment一键执行，可以用pod
+kubectl exec &lt;pod名&gt; -c curl -- curl -sS http://httpbin:8000/headers
+</code></pre>
+<p>查看 <code class="notranslate">httpbin-v1</code> 和 <code class="notranslate">httpbin-v2</code> 这 2 个 Pod 的日志。 您应可以看到 <code class="notranslate">v1</code> 版本的访问日志条目，而 <code class="notranslate">v2</code> 版本没有日志：</p>
+<pre class="notranslate"><code class="notranslate">kubectl logs deploy/httpbin-v1 -c httpbin
+
+
+[2026-04-14 01:19:14 +0000] [1] [INFO] Starting gunicorn 19.9.0
+[2026-04-14 01:19:14 +0000] [1] [INFO] Listening at: http://0.0.0.0:80 (1)
+[2026-04-14 01:19:14 +0000] [1] [INFO] Using worker: sync
+[2026-04-14 01:19:14 +0000] [9] [INFO] Booting worker with pid: 9
+172.16.1.77 - - [14/Apr/2026:02:25:45 +0000] "GET /headers HTTP/1.1" 200 775 "-" "curl/8.19.0"
+
+*如果这里的ip为198.0.0.0/8网段，你很有可能没有注入sidecar*
+</code></pre>
+<pre class="notranslate"><code class="notranslate">kubectl logs deploy/httpbin-v2 -c httpbin
+
+[2026-04-14 01:19:49 +0000] [1] [INFO] Starting gunicorn 19.9.0
+[2026-04-14 01:19:49 +0000] [1] [INFO] Listening at: http://0.0.0.0:80 (1)
+[2026-04-14 01:19:49 +0000] [1] [INFO] Using worker: sync
+[2026-04-14 01:19:49 +0000] [9] [INFO] Booting worker with pid: 9
+</code></pre>
+<p>修改路由规则，将流量镜像发送至 <code class="notranslate">httpbin-v2</code>：</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f - &lt;&lt;EOF
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: httpbin
+spec:
+  hosts:
+  - httpbin
+  http:
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+      weight: 100
+    mirror:
+      host: httpbin
+      subset: v2
+    mirrorPercentage:
+      value: 100.0
+EOF
+</code></pre>
+<p>发送流量：</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec deploy/curl -c curl -- curl -sS http://httpbin:8000/headers
+
+#如果版本较低，不支持deployment一键执行，可以用pod
+kubectl exec &lt;pod名&gt; -c curl -- curl -sS http://httpbin:8000/headers
+</code></pre>
+<p>日志验证：</p>
+<pre class="notranslate"><code class="notranslate">[root@gz-hw-tianti-test-ngx-euler01 istio-1.29.1]# kubectl logs deploy/httpbin-v1 -c httpbin
+172.16.1.77 - - [14/Apr/2026:02:25:45 +0000] "GET /headers HTTP/1.1" 200 775 "-" "curl/8.19.0"
+
+[root@gz-hw-tianti-test-ngx-euler01 istio-1.29.1]# kubectl logs deploy/httpbin-v2 -c httpbin
+172.16.1.77 - - [14/Apr/2026:02:25:45 +0000] "GET /headers HTTP/1.1" 200 808 "-" "curl/8.19.0"
+
+
+时间对得上～
+</code></pre>
+<p>清理：</p>
+<pre class="notranslate"><code class="notranslate">kubectl delete virtualservice httpbin
+kubectl delete destinationrule httpbin
+
+kubectl delete deploy httpbin-v1 httpbin-v2 curl
+kubectl delete svc httpbin
+
+</code></pre>
+<hr>
+<h3>Bookinfo展示特性</h3>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/b32d9589-7d3d-443d-bafc-207dd7977139"><img src="https://github.com/user-attachments/assets/b32d9589-7d3d-443d-bafc-207dd7977139" alt="Image" style="max-width: 100%;"></a><br>
+请移步下一章节，以下内容暂未跑通（Istio 控制器会<strong>自动生成</strong> Service 和 Deployment，控制不了 Service 的细节（比如 ipFamilyPolicy），导致单栈集群不能正常建立svc）：</p>
+<p>下载yaml（Gateway api crd）</p>
+<pre class="notranslate"><code class="notranslate">curl -Lo standard-install.yaml https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.0/standard-install.yaml
+</code></pre>
+<p>放入/eddie</p>
+<pre class="notranslate"><code class="notranslate">cd /eddie
+kubectl apply -f standard-install.yaml
+
+
+
+[root@gz-hw-tianti-test-ngx-euler01 eddie]# kubectl apply -f standard-install.yaml
+customresourcedefinition.apiextensions.k8s.io/backendtlspolicies.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/gatewayclasses.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/gateways.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/grpcroutes.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/httproutes.gateway.networking.k8s.io created
+customresourcedefinition.apiextensions.k8s.io/referencegrants.gateway.networking.k8s.io created
+</code></pre>
+<p>至此就配置安装好了gateway api</p>
+<pre class="notranslate"><code class="notranslate">cd /eddie/istio-1.29.1
+kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+
+*上面这条命令会启动 bookinfo 应用架构图中显示的全部四个服务。 也会启动三个版本的 reviews 服务：v1、v2 以及 v3。*
+</code></pre>
+<p>验证你的服务已经正常启动：</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}')" -c ratings -- curl -sS productpage:9080/productpage | grep -o "&lt;title&gt;.*&lt;/title&gt;"
+</code></pre>
+<p>创建loadbalance，暴露服务到外部，我们要通过浏览器访问：</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/gateway-api/bookinfo-gateway.yaml
+</code></pre>
+<p>因为创建 Kubernetes <code class="notranslate">Gateway</code> 资源也会[<a href="https://istio.io/latest/zh/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment" rel="nofollow">部署关联的代理服务</a>](<a href="https://istio.io/latest/zh/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)%EF%BC%8C" rel="nofollow">https://istio.io/latest/zh/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)，</a> 所以运行以下命令等待网关就绪：</p>
+<pre class="notranslate"><code class="notranslate">kubectl wait --for=condition=programmed gtw bookinfo-gateway
+</code></pre>
+<p><em>因为</em>svc<em>中关于多栈（ipv4和v6）的配置是</em></p>
+<div class="highlight highlight-source-yaml"><pre class="notranslate"><span class="pl-ent">ipFamilyPolicy</span>: <span class="pl-s">PreferDualStack</span></pre></div>
+<p><em>虽然实际只分配了 IPv4，但华为云的 webhook 看到 <code class="notranslate">PreferDualStack</code> 就认为涉及 IPv6，共享型 ELB 直接拒绝，导致无法修改。</em></p>
+<p>修改istio环境变量</p>
+<pre class="notranslate"><code class="notranslate">kubectl set env deployment/istiod -n istio-system PILOT_IPFAMILYPOLICY=SingleStack
+</code></pre>
+<p>重建网关</p>
+<pre class="notranslate"><code class="notranslate">kubectl delete gateway bookinfo-gateway
+kubectl apply -f samples/bookinfo/gateway-api/bookinfo-gateway.yaml
+</code></pre>
+<hr>
+<h3>Bookinfo展示特性</h3>
+<p>注入sidecar</p>
+<pre class="notranslate"><code class="notranslate">kubectl label namespace default istio-injection=enabled
+</code></pre>
+<p>部署应用</p>
+<pre class="notranslate"><code class="notranslate">cd /eddie/istio-1.29.1
+kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+</code></pre>
+<p>要确认 Bookinfo 应用正在运行，请从某个 Pod 中（例如从 <code class="notranslate">ratings</code> 中）用 <code class="notranslate">curl</code> 命令对此应用发送一条请求：</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].metadata.name}')" -c ratings -- curl -sS productpage:9080/productpage | grep -o "&lt;title&gt;.*&lt;/title&gt;"
+
+&lt;title&gt;Simple Bookstore App&lt;/title&gt;
+</code></pre>
+<p>确认istio有 IngressGateway 组件</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate">kubectl get svc -n istio-system istio-ingressgateway
+kubectl get pods -n istio-system -l istio=ingressgateway</pre></div>
+<p>创建istio原生gateway</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+
+kubectl get gateway.networking.istio.io
+
+export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+
+</code></pre>
+<p>登陆华为云，进入集群，切换到istio-system命名空间，更新istio-ingressgateway的服务挂在共享型elb上。（这里因为tianti test的443被占用了，所以我暴露到了8443，另外8080的我暴露到了50001，其余没变。</p>
+<pre class="notranslate"><code class="notranslate">export INGRESS_NAME=istio-ingressgateway
+export INGRESS_NS=istio-system
+kubectl get svc "$INGRESS_NAME" -n "$INGRESS_NS"
+</code></pre>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+</code></pre>
+<pre class="notranslate"><code class="notranslate">export GATEWAY_URL=$INGRESS_HOST:$INGRESS_PORT
+curl -s "http://${GATEWAY_URL}/productpage" | grep -o "&lt;title&gt;.*&lt;/title&gt;"
+
+*你就应该看到&lt;title&gt;Simple Bookstore App&lt;/title&gt;*
+</code></pre>
+<p>访问<a href="http://192.168.100.24:50001/productpage" rel="nofollow">http://192.168.100.24:50001/productpage</a></p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/97e56b81-8426-4c3f-8bf8-425c28bf1c62"><img src="https://github.com/user-attachments/assets/97e56b81-8426-4c3f-8bf8-425c28bf1c62" alt="Image" style="max-width: 100%;"></a><br>
+创建默认目标规则</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/networking/destination-rule-all.yaml
+
+
+[root@gz-hw-tianti-test-ngx-euler01 istio-1.29.1]# kubectl apply -f samples/bookinfo/networking/destination-rule-all.yaml
+destinationrule.networking.istio.io/productpage created
+destinationrule.networking.istio.io/reviews created
+destinationrule.networking.istio.io/ratings created
+destinationrule.networking.istio.io/details created
+
+*你可以用以下命令来查看当前规则*
+kubectl get destinationrules -o yaml
+</code></pre>
+<hr>
+<h3>配置请求路由</h3>
+<p>Istio 使用 Virtual Service 来定义路由规则。 运行以下命令以应用 Virtual Service， 在这种情况下，Virtual Service 将所有流量路由到每个微服务的 <code class="notranslate">v1</code> 版本。</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/networking/virtual-service-all-v1.yaml
+</code></pre>
+<p>使用以下命令显示已定义的路由：</p>
+<pre class="notranslate"><code class="notranslate">kubectl get virtualservices -o yaml
+</code></pre>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/cf3d36e6-6f20-48d2-8ec2-99fcde3db965"><img src="https://github.com/user-attachments/assets/cf3d36e6-6f20-48d2-8ec2-99fcde3db965" alt="Image" style="max-width: 100%;"></a><br>
+此时再看，就是没有星星了。</p>
+<p>公网也可以访问：</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/4a0381ab-f7eb-4127-9f89-b620b2eb2e8c"><img src="https://github.com/user-attachments/assets/4a0381ab-f7eb-4127-9f89-b620b2eb2e8c" alt="Image" style="max-width: 100%;"></a><br>
+运行以下命令以启用基于用户的路由：</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/networking/virtual-service-reviews-test-v2.yaml
+</code></pre>
+<p>在 Bookinfo 应用程序的 <code class="notranslate">/productpage</code> 上，以用户 <code class="notranslate">jason</code> 身份登录。</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/5c017cf2-65a8-4bc8-b179-3f78d89beaaa"><img src="https://github.com/user-attachments/assets/5c017cf2-65a8-4bc8-b179-3f78d89beaaa" alt="Image" style="max-width: 100%;"></a><br>
+通过浏览器标头来分离流量：</p>
+<pre class="notranslate"><code class="notranslate">cp samples/bookinfo/networking/virtual-service-reviews-test-v2.yaml samples/bookinfo/networking/virtual-service-reviews-test-v2.1.yaml
+
+vim samples/bookinfo/networking/virtual-service-reviews-test-v2.1.yaml
+</code></pre>
+<pre class="notranslate"><code class="notranslate">apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  hosts:
+    - reviews
+  http:
+  - match:
+    - headers:
+        user-agent:
+          exact: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+    route:
+    - destination:
+        host: reviews
+        subset: v2
+  - route:
+    - destination:
+        host: reviews
+        subset: v1
+
+</code></pre>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f samples/bookinfo/networking/virtual-service-reviews-test-v2.1.yaml
+</code></pre>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/a97c2704-6978-496a-ac04-3000bb49f346"><img src="https://github.com/user-attachments/assets/a97c2704-6978-496a-ac04-3000bb49f346" alt="Image" style="max-width: 100%;"></a></p>
+<hr>
+<h3>金丝雀发布</h3>
+<p>华为云上ASM服务可以输入灰度版本号，输入流量控制策略就可以灰度、回滚、完全更新。</p>
+<p>如果是自建，那么就是复制deployment，用subset的label（如matchLabels. version: v2)，进到istio进行流量管控。hpa最好，如果业务场景不适合hpa，就增加资源。由于erp涉及数据库操作，回滚很难，流量控制也不合适，所以在这里不再赘述erp行业使用istio的实践。</p></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

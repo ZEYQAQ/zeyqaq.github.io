@@ -6,12 +6,19 @@ Claude 的用量限制并不是在每天午夜重置，而是采用滚动式的5
 我的Macmini日常不关机，所以选用了此方案。
 注，Anthropic最近更新了规则，本方案仅重置claude.ai、Claude Code 和 Claude Desktop 的每日额度。API额度已经和Plan分离开，原通过Python脚本重置API额度的不再赘述；我还没有验证crontab在Windows机器上的可行性，所以Windows用户可以关注后续回复。
 
-MacOS/Linux Terminal中运行：
+
+
+```
+#MacOS/Linux Terminal中运行：
+
 
 # 编辑 crontab
 crontab -e
 # 每天早上 6:00 自动发一条消息
 0 6 * * * echo "hi" | claude --print 2>/dev/null
+```
+
+
 
 <img width="580" height="329" alt="Image" src="https://github.com/user-attachments/assets/c4d0ba5d-a869-4c2c-b0c2-66162046adf2" />
 

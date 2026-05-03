@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="古人云：如果一层中间件解决不了问题，那就再加一层中间件。">
+<meta property="og:title" content="Consul：监控组件的服务发现">
+<meta property="og:description" content="古人云：如果一层中间件解决不了问题，那就再加一层中间件。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/Consul%EF%BC%9A-jian-kong-zu-jian-de-fu-wu-fa-xian.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>Consul：监控组件的服务发现</title>
+<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">Consul：监控组件的服务发现</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/75" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>古人云：如果一层中间件解决不了问题，那就再加一层中间件。</p>
+<p>而我们就遇到了这样的一个问题：我们的prometheus的防火墙配置的过于繁琐，同时prometheus.yml不规范；每次修改prometheus.yml都需要reload，无法批量化暴露node的指标。我们就引入了Consul，这个服务发现工具，在每次安装node_exporter的时候，顺带安装Consul的Client。这样我们只需要在prometheus.yml中配置Consul的server，而由Consul管理需要监控的node主机。免去了人工修改的低效与误操作的风险。</p>
+<p>下面是我整理的操作流程及一键部署脚本，供参考。</p>
+<h2>安装node_exporter</h2>
+<p>1、下载</p>
+<p>2、解压安装移动</p>
+<pre class="notranslate"><code class="notranslate"> tar -zvxf node_exporter-1.11.1.linux-amd64.tar.gz
+ mv node_exporter-1.11.1.linux-amd64/node_exporter /usr/local/bin/
+ chmod +x /usr/local/bin/node_exporter 
+</code></pre>
+<p>3、创建systemd</p>
+<pre class="notranslate"><code class="notranslate">cat &gt; /etc/systemd/system/node_exporter.service &lt;&lt;EOF
+[Unit]
+Description=Prometheus Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now node_exporter
+systemctl status node_exporter
+</code></pre>
+<h2>在consul中注册</h2>
+<pre class="notranslate"><code class="notranslate">#web访问：
+http://&lt;server_ip&gt;:8500/ui/dc1/services
+http://10.101.128.98:8500/ui/dc1/services
+</code></pre>
+<p>1、安装consul客户端（在被监控的主机</p>
+<pre class="notranslate"><code class="notranslate">cd /tmp
+wget https://releases.hashicorp.com/consul/1.21.5/consul_1.21.5_linux_amd64.zip
+unzip consul_1.21.5_linux_amd64.zip
+mv consul /usr/local/bin/
+chmod +x /usr/local/bin/consul
+consul version   # 验证
+</code></pre>
+<p>2、写 agent 主配置 <code class="notranslate">/etc/consul.d/consul.hcl</code>:</p>
+<p>i）agent 配置加上 ACL/加密相关项(如果 server 端开了的话)（1.21 版本默认推荐启用 ACL 和 gossip 加密。）</p>
+<p>查看加密配置：</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> 在 server 上看</span>
+consul info <span class="pl-k">|</span> grep -E <span class="pl-s"><span class="pl-pds">'</span>acl|encrypted<span class="pl-pds">'</span></span></pre></div>
+<p>如果 server 端开了 ACL 和加密,client agent 配置要补全。完整版 <code class="notranslate">/etc/consul.d/consul.hcl</code>:</p>
+<div class="highlight highlight-source-hcl"><pre class="notranslate"><span class="pl-v"><span class="pl-smi">datacenter</span>   <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>dc1<span class="pl-pds">"</span></span>
+<span class="pl-v"><span class="pl-smi">data_dir</span>     <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>/var/lib/consul<span class="pl-pds">"</span></span>
+<span class="pl-v"><span class="pl-smi">node_name</span>    <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>&lt;node的名称&gt;<span class="pl-pds">"</span></span>
+<span class="pl-v"><span class="pl-smi">bind_addr</span>    <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>&lt;node的IP&gt;<span class="pl-pds">"</span></span>
+<span class="pl-v"><span class="pl-smi">client_addr</span>  <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>127.0.0.1<span class="pl-pds">"</span></span>
+<span class="pl-v"><span class="pl-smi">server</span>       <span class="pl-k">=</span> </span><span class="pl-c1">false</span>
+<span class="pl-v"><span class="pl-smi">retry_join</span>   <span class="pl-k">=</span> </span>[<span class="pl-s"><span class="pl-pds">"</span>你的Consul Server IP<span class="pl-pds">"</span></span>]
+
+<span class="pl-c"><span class="pl-c">#</span> 如果 server 启用了 gossip 加密(consul keygen 生成的那个 key)<span class="pl-c"></span></span>
+<span class="pl-v"><span class="pl-smi">encrypt</span> <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>你的加密key==<span class="pl-pds">"</span></span>
+
+<span class="pl-c"><span class="pl-c">#</span> 如果 server 启用了 ACL<span class="pl-c"></span></span>
+<span class="pl-en">acl</span> {
+  <span class="pl-v"><span class="pl-smi">enabled</span>        <span class="pl-k">=</span> </span><span class="pl-c1">true</span>
+  <span class="pl-v"><span class="pl-smi">default_policy</span> <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>deny<span class="pl-pds">"</span></span>
+  <span class="pl-v"><span class="pl-smi">enable_token_persistence</span> <span class="pl-k">=</span> </span><span class="pl-c1">true</span>
+  <span class="pl-en">tokens</span> {
+    <span class="pl-v"><span class="pl-smi">agent</span>   <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>agent-token-uuid<span class="pl-pds">"</span></span>      <span class="pl-c"><span class="pl-c">#</span> 注册服务用的 token<span class="pl-c"></span></span>
+    <span class="pl-v"><span class="pl-smi">default</span> <span class="pl-k">=</span> </span><span class="pl-s"><span class="pl-pds">"</span>default-token-uuid<span class="pl-pds">"</span></span>    <span class="pl-c"><span class="pl-c">#</span> 可选<span class="pl-c"></span></span>
+  }
+}
+
+<span class="pl-c"><span class="pl-c">#</span> 1.21 推荐显式开 telemetry(可选)<span class="pl-c"></span></span>
+<span class="pl-en">telemetry</span> {
+  <span class="pl-v"><span class="pl-smi">disable_hostname</span> <span class="pl-k">=</span> </span><span class="pl-c1">true</span>
+}</pre></div>
+<p>如果 server 是裸跑没开 ACL/加密,这一步跳过。</p>
+<p>ii）没开加密使用：</p>
+<pre class="notranslate"><code class="notranslate">vim /etc/consul.d/consul.hcl
+</code></pre>
+<pre class="notranslate"><code class="notranslate">datacenter   = "dc1"
+data_dir     = "/var/lib/consul"
+node_name    = "&lt;node的名称&gt;"
+bind_addr    = "&lt;node的IP&gt;"
+client_addr  = "127.0.0.1"
+server       = false
+retry_join   = ["你的Consul Server IP"] 
+</code></pre>
+<pre class="notranslate"><code class="notranslate">vim /etc/systemd/system/consul.service
+</code></pre>
+<pre class="notranslate"><code class="notranslate">[Unit]
+Description=Consul Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/consul agent -config-dir=/etc/consul.d
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<pre class="notranslate"><code class="notranslate">systemctl daemon-reload
+systemctl enable --now consul
+
+# 验证已加入集群
+consul members
+</code></pre>
+<p>3、注册 node_exporter 服务</p>
+<p>在client上</p>
+<pre class="notranslate"><code class="notranslate">vim /etc/consul.d/node-exporter.json
+</code></pre>
+<pre class="notranslate"><code class="notranslate">{
+  "service": {
+    "id": "node-exporter-&lt;node的IP&gt;",
+    "name": "node-exporter",
+    "tags": ["prometheus", "metrics"],
+    "address": "&lt;node的IP&gt;",
+    "port": 9100,
+    "meta": {
+      "job": "prod"
+    },
+    "check": {
+      "id": "node-exporter-http",
+      "name": "node_exporter HTTP check",
+      "http": "http://&lt;node的IP&gt;:9100/metrics",
+      "method": "GET",
+      "interval": "15s",
+      "timeout": "3s"
+    }
+  }
+}
+</code></pre>
+<pre class="notranslate"><code class="notranslate">consul reload
+</code></pre>
+<p>4、验证结果：</p>
+<p>1、client上：</p>
+<pre class="notranslate"><code class="notranslate"># 看服务列表
+curl -s http://127.0.0.1:8500/v1/agent/services | python3 -m json.tool
+
+# 看健康检查状态
+curl -s http://127.0.0.1:8500/v1/health/service/node-exporter?passing | python3 -m json.tool
+</code></pre>
+<p>2、在 Consul UI 上看</p>
+<p>浏览器打开 <code class="notranslate">http://你的Consul:8500/ui</code>,Services 列表里应该出现 <code class="notranslate">node-exporter</code></p>
+<p>3、prometheus上验证</p>
+<pre class="notranslate"><code class="notranslate">curl -s http://localhost:9090/api/v1/targets | grep -A3 '&lt;client_ip&gt;'
+</code></pre>
+<h2>在prometheus里配置consul</h2>
+<pre class="notranslate"><code class="notranslate"> vim /usr/local/prometheus/prometheus.yml
+</code></pre>
+<pre class="notranslate"><code class="notranslate">scrape_configs:
+
+  # 1. 监控 Consul 集群自身
+  - job_name: 'consul'
+    static_configs:
+      - targets: ['10.101.128.100:8500', '10.101.128.98:8500', '10.101.128.99:8500']
+    metrics_path: /v1/agent/metrics
+    params:
+      format: ['prometheus']
+
+  # 2. 从 Consul 自动发现node-exporter
+  - job_name: 'node-exporter'
+    consul_sd_configs:
+      - server: '127.0.0.1:8500'
+        datacenter: 'dc1'
+        services: ['node-exporter']
+    relabel_configs:
+      # 只保留健康实例
+      - source_labels: [__meta_consul_health]
+        action: keep
+        regex: passing
+      # 用 IP:PORT 作为 instance 标签
+      - source_labels: [__meta_consul_service_address, __meta_consul_service_port]
+        separator: ':'
+        target_label: instance
+      - source_labels: [__meta_consul_dc]
+        target_label: datacenter
+      - source_labels: [__meta_consul_node]
+        target_label: consul_node
+      # 保留原始 job tag (sbx/prod) 作为额外标签，方便按环境筛选
+      - source_labels: [__meta_consul_service_metadata_job]
+        target_label: env
+
+</code></pre>
+<p>如果缺少iptables监控模块（那就在client的机器上：</p>
+<pre class="notranslate"><code class="notranslate"># 1. 加载模块
+sudo modprobe nf_conntrack
+
+# 2. 验证已加载
+lsmod | grep nf_conntrack
+# 应该看到 nf_conntrack 这一行
+
+# 3. 验证 /proc 接口出现了
+cat /proc/sys/net/netfilter/nf_conntrack_count
+# 输出一个数字(当前连接跟踪数)
+
+# 4. 验证 exporter 现在能暴露指标了
+curl -s http://localhost:9100/metrics | grep nf_conntrack
+# 应该看到 node_nf_conntrack_entries 等
+
+# 5. 设置开机自动加载(避免重启后又没了)
+echo "nf_conntrack" | sudo tee /etc/modules-load.d/nf_conntrack.conf
+</code></pre>
+<hr>
+<p>Claude：当你已经配置好prometheus和ConsulServer之后，你可以在node上使用本脚本，一键安装并配置。</p>
+<pre class="notranslate"><code class="notranslate">#!/usr/bin/env bash
+#Author:ZEYQAQ
+set -euo pipefail
+
+NODE_EXPORTER_VERSION="${NODE_EXPORTER_VERSION:-1.11.1}"
+CONSUL_VERSION="${CONSUL_VERSION:-1.21.5}"
+CONSUL_SERVER_IP="${CONSUL_SERVER_IP:-&lt;这是你的Prometheus到机器的IP&gt;}"
+CLIENT_IP="${CLIENT_IP:-$(ip route get "${CONSUL_SERVER_IP}" 2&gt;/dev/null | awk '{for(i=1;i&lt;=NF;i++) if($i=="src"){print $(i+1); exit}}')}"
+CLIENT_IP="${CLIENT_IP:?cannot auto-detect CLIENT_IP, please pass it explicitly}"
+echo "==&gt; CLIENT_IP=${CLIENT_IP}"
+DATACENTER="${DATACENTER:-dc1}"
+NODE_NAME="${NODE_NAME:-kworkclient-${CLIENT_IP//./-}}"
+PKG_HOST="${PKG_HOST:-&lt;这是你的存有文件的机器IP&gt;}"
+PKG_USER="${PKG_USER:-root}"
+PKG_PASS="${PKG_PASS:-&lt;这是你的存有文件的机器明文密码&gt;}"
+PKG_PATH="${PKG_PATH:-/root}"
+if [[ $EUID -ne 0 ]]; then
+  echo "must run as root" &gt;&amp;2
+  exit 1
+fi
+PKG_URL="${PKG_URL:-http://${PKG_HOST}:8000}"
+echo "==&gt; [1/6] fetch &amp; install node_exporter ${NODE_EXPORTER_VERSION} from ${PKG_URL}"
+cd /tmp
+NE_TGZ="node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+if [[ ! -f "$NE_TGZ" ]]; then
+  curl -fsSLO "${PKG_URL}/${NE_TGZ}"
+fi
+tar -zxf "$NE_TGZ"
+mv -f "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter" /usr/local/bin/
+chmod +x /usr/local/bin/node_exporter
+echo "==&gt; [2/6] systemd unit for node_exporter"
+cat &gt; /etc/systemd/system/node_exporter.service &lt;&lt;EOF
+[Unit]
+Description=Prometheus Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now node_exporter
+systemctl --no-pager status node_exporter | head -n 5 || true
+echo "==&gt; [3/6] install consul ${CONSUL_VERSION}"
+cd /tmp
+CONSUL_ZIP="consul_${CONSUL_VERSION}_linux_amd64.zip"
+if [[ ! -f "$CONSUL_ZIP" ]]; then
+  curl -fsSLO "${PKG_URL}/${CONSUL_ZIP}"
+fi
+command -v unzip &gt;/dev/null 2&gt;&amp;1 || { (command -v dnf &gt;/dev/null &amp;&amp; dnf install -y unzip) || yum install -y unzip; }
+unzip -o "$CONSUL_ZIP" &gt;/dev/null
+mv -f consul /usr/local/bin/
+chmod +x /usr/local/bin/consul
+consul version
+echo "==&gt; [4/6] consul agent config (no ACL / no encryption)"
+mkdir -p /etc/consul.d /var/lib/consul
+cat &gt; /etc/consul.d/consul.hcl &lt;&lt;EOF
+datacenter   = "${DATACENTER}"
+data_dir     = "/var/lib/consul"
+node_name    = "${NODE_NAME}"
+bind_addr    = "${CLIENT_IP}"
+client_addr  = "127.0.0.1"
+server       = false
+retry_join   = ["${CONSUL_SERVER_IP}"]
+EOF
+
+cat &gt; /etc/systemd/system/consul.service &lt;&lt;'EOF'
+[Unit]
+Description=Consul Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/consul agent -config-dir=/etc/consul.d
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now consul
+sleep 3
+consul members || true
+echo "==&gt; [5/6] register node_exporter service"
+cat &gt; /etc/consul.d/node-exporter.json &lt;&lt;EOF
+{
+  "service": {
+    "id": "node-exporter-${CLIENT_IP}",
+    "name": "node-exporter",
+    "tags": ["prometheus", "metrics"],
+    "address": "${CLIENT_IP}",
+    "port": 9100,
+    "meta": {
+      "job": "prod"
+    },
+    "check": {
+      "id": "node-exporter-http",
+      "name": "node_exporter HTTP check",
+      "http": "http://${CLIENT_IP}:9100/metrics",
+      "method": "GET",
+      "interval": "15s",
+      "timeout": "3s"
+    }
+  }
+}
+EOF
+consul reload
+echo "==&gt; [6/6] load nf_conntrack module"
+modprobe nf_conntrack || true
+echo "nf_conntrack" &gt; /etc/modules-load.d/nf_conntrack.conf
+echo "==&gt; done. verify:"
+echo "    curl -s http://127.0.0.1:8500/v1/agent/services | python3 -m json.tool"
+echo "    curl -s 'http://127.0.0.1:8500/v1/health/service/node-exporter?passing' | python3 -m json.tool"
+
+</code></pre></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

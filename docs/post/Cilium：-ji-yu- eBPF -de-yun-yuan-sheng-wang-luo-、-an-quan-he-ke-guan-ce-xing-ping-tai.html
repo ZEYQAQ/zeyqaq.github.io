@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="我问同事，你知道斯乐姆吗？
+
+--同事说，不知道。">
+<meta property="og:title" content="Cilium：基于 eBPF 的云原生网络、安全和可观测性平台">
+<meta property="og:description" content="我问同事，你知道斯乐姆吗？
+
+--同事说，不知道。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/Cilium%EF%BC%9A-ji-yu-%20eBPF%20-de-yun-yuan-sheng-wang-luo-%E3%80%81-an-quan-he-ke-guan-ce-xing-ping-tai.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>Cilium：基于 eBPF 的云原生网络、安全和可观测性平台</title>
+
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">Cilium：基于 eBPF 的云原生网络、安全和可观测性平台</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/76" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>我问同事，你知道斯乐姆吗？</p>
+<p>--同事说，不知道。</p>
+<p>类似calico，搞cni的。</p>
+<p>--同事说，不知道。</p>
+<p>美国公司，搞网络的。</p>
+<p>--是思科？</p>
+<p>这个产品的母公司被思科收购了。6202年了，思科还是在买买买。</p>
+<p>初步学习，建议装：Docker desktop、kubectl、kind、helm、cilium CLI。为什么是kind？</p>
+<p>默认就是 kind（Kubernetes in Docker），比 minikube 更适合做 CNI 实验（方便禁用默认 CNI）。</p>
+<pre class="notranslate"><code class="notranslate">brew install kind helm cilium-cli 2&gt;&amp;1 | tail -30
+
+#编辑yaml vim kind-cilium.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cilium-lab
+networking:
+  disableDefaultCNI: true
+  kubeProxyMode: none
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+#创建集群
+kind create cluster --config kind-cilium.yaml 2&gt;&amp;1 | tail -40
+#安装kube-proxy的替代
+kubectl get nodes 2&gt;&amp;1; echo '---'; API_SERVER_IP=$(docker inspect cilium-lab-control-plane -f '{{.NetworkSettings.Networks.kind.IPAddress}}'); echo "API server IP: $API_SERVER_IP"; cilium install --version 1.17.2 \
+  --set kubeProxyReplacement=true \
+  --set k8sServiceHost=$API_SERVER_IP \
+  --set k8sServicePort=6443 \
+  --set hubble.relay.enabled=true \
+  --set hubble.ui.enabled=true 2&gt;&amp;1 | tail -20
+#等待Cilium就绪
+cilium status --wait --wait-duration 3m 2&gt;&amp;1 | tail -30
+#等待容器就绪
+kubectl -n kube-system get pods -o wide 2&gt;&amp;1 | head -20; echo '---'; kubectl -n kube-system describe pod -l k8s-app=cilium 2&gt;&amp;1 | grep -A5 -i "events\|warning\|error" | head -40
+</code></pre>
+<p>Cilium  [ˈsɪliəm]  纤毛 是CNCF的毕业项目，功能强大，可以实现：容器网络（CNI）、代替kube-proxy（实现svc）、L3-L7网络策略、服务网格（类似istio）、负载均衡（替代ingress）；特性是可以实现：网络可观测（Hubble）、透明加密（WireGuard / IPsec）、跨集群互联（Cluster Mesh）。</p>
+<p>Cilium基于eBPF，eBPF（extended Berkeley Packet Filter）是 Linux 内核的一项技术，允许在不修改内核代码、不加载内核模块的前提下，把自定义程序"安全地"注入内核执行。可以理解为内核里的 JavaScript。</p>
+<p>Cilium的数据包可以绕过 iptables、conntrack 甚至部分协议栈，规则更新无需重载，性能强，O(1))的时间复杂度处理数据包。</p>
+<p>Cilium组成：</p>
+<p>1、<strong>Cilium Agent（cilium-agent）</strong> 每个节点上以 DaemonSet 运行的守护进程。主要代理，干事的。</p>
+<p>2、<strong>Cilium Operator</strong> 集群级别的控制器，处理跨节点的全局任务：IP 地址管理（IPAM）、CRD 状态同步、垃圾回收等。</p>
+<p>3、<strong>Cilium CLI（<code class="notranslate">cilium</code> 命令）</strong> 管理工具，用来安装、检查状态、调试。</p>
+<p>4、<strong>Hubble</strong> Cilium 的可观测性组件。</p>
+<p>Cilium作为后起之秀，现在看完全有大一统之势：几乎把CloudNative发展到现在的所有和网络相关的概念和功能汇聚一身，同时还有内核级别的性能。</p>
+<p>他们的开发团队不同于Istio，少了书生气但是多了一点科幻迷的理科味。</p>
+<p>看他们的Demo就能明白：</p>
+<p>StarWarDemo：</p>
+<p>在我们这个受《星球大战》启发的示例中，有三个微服务应用：死星（Deathstar）、帝国（Tiefighter）和联盟（Xwing）。死星运行在80端口的HTTP Web服务，该服务以Kubernetes Service的形式暴露，用于在两个Pod副本之间进行负载均衡。死星服务为帝国的飞船提供着陆服务，以便它们可以请求着陆港。帝国Pod代表典型帝国飞船上的着陆请求客户端服务，而联盟Pod则代表联盟飞船上的类似服务。它们的存在是为了测试针对死星着陆服务的不同访问控制安全策略。<br>
+<a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/65ceb0ec-20aa-4cbf-be22-81e85ad535bb"><img width="1294" height="920" alt="Image" src="https://github.com/user-attachments/assets/65ceb0ec-20aa-4cbf-be22-81e85ad535bb" style="max-width: 100%; height: auto; max-height: 920px;; aspect-ratio: 1294 / 920; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a><br>
+http-sw-app.yaml中包含了三个服务的deployment，每个deployment使用k8s的label： (<code class="notranslate">org=empire, class=deathstar</code>), (<code class="notranslate">org=empire, class=tiefighter</code>),  (<code class="notranslate">org=alliance, class=xwing</code>)，来区分。此外文件中还定义了一个svc，给Deathstar，这个svc负责将流量分配到所有打了 (<code class="notranslate">org=empire, class=deathstar</code>)标签的Pod上面。</p>
+<pre class="notranslate"><code class="notranslate">kubectl create -f https://raw.githubusercontent.com/cilium/cilium/1.19.3/examples/minikube/http-sw-app.yaml
+</code></pre>
+<p>如果你的k8s访问不了，那么使用：</p>
+<pre class="notranslate"><code class="notranslate">---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deathstar
+  labels:
+    app.kubernetes.io/name: deathstar
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    org: empire
+    class: deathstar
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deathstar
+  labels:
+    app.kubernetes.io/name: deathstar
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      org: empire
+      class: deathstar
+  template:
+    metadata:
+      labels:
+        org: empire
+        class: deathstar
+        app.kubernetes.io/name: deathstar
+    spec:
+      containers:
+      - name: deathstar
+        # renovate: datasource=docker depName=quay.io/cilium/starwars
+        image: quay.io/cilium/starwars@sha256:896dc536ec505778c03efedb73c3b7b83c8de11e74264c8c35291ff6d5fe8ada # v2.3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tiefighter
+  labels:
+    org: empire
+    class: tiefighter
+    app.kubernetes.io/name: tiefighter
+spec:
+  containers:
+  - name: spaceship
+    image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: xwing
+  labels:
+    app.kubernetes.io/name: xwing
+    org: alliance
+    class: xwing
+spec:
+  containers:
+  - name: spaceship
+    image: quay.io/cilium/json-mock:v1.3.8@sha256:5aad04835eda9025fe4561ad31be77fd55309af8158ca8663a72f6abb78c2603
+</code></pre>
+<p>等待一会儿初始化：</p>
+<pre class="notranslate"><code class="notranslate">kubectl get pods,svc
+</code></pre>
+<p>每个Pod在Cilium里都会被表示为本地Cilium代理的一个endpoint，可以在Cilium的Pod内调用cilium-dbg来列出他们：</p>
+<pre class="notranslate"><code class="notranslate">kubectl -n kube-system exec ds/cilium -- cilium-dbg endpoint list
+</code></pre>
+<p>这时候我们验证：没策略时，谁都能停靠</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+</code></pre>
+<p>更改L3/L4策略，只允许帝国战机停靠：</p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/1.19.3/examples/minikube/sw_l3_l4_policy.yaml
+</code></pre>
+<pre class="notranslate"><code class="notranslate">apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "rule1"
+spec:
+  description: "L3-L4 policy to restrict deathstar access to empire ships only"
+  endpointSelector:
+    matchLabels:
+      org: empire
+      class: deathstar
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        org: empire
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+</code></pre>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/e2448be5-ea30-4c67-a246-819e6be27db6"><img width="1308" height="926" alt="Image" src="https://github.com/user-attachments/assets/e2448be5-ea30-4c67-a246-819e6be27db6" style="max-width: 100%; height: auto; max-height: 926px;; aspect-ratio: 1308 / 926; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+再试一下尝试降落：
+<pre class="notranslate"><code class="notranslate">kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+#Ship landed
+kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+</code></pre>
+<p>会发现只有帝国可降落～</p>
+<p>这时候我们再次检查入口策略：</p>
+<pre class="notranslate"><code class="notranslate">kubectl -n kube-system exec cilium-1c2cz -- cilium-dbg endpoint list
+</code></pre>
+<p>如果要看详情：</p>
+<pre class="notranslate"><code class="notranslate">kubectl get cnp
+#更进一步：
+kubectl describe cnp rule1
+</code></pre>
+<p>以上是四层网络的转发，当你想更进一步，比如仅仅向开放一些特定的API（比如限制<em>tiefighter</em>只能发起 POST /v1/request-landing API 调用，而禁止所有其他调用（包括 PUT /v1/exhaust-port）。）那就可以继续：</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/8c29eff0-0eb5-40b7-8c00-983ea81412e2"><img width="1354" height="968" alt="Image" src="https://github.com/user-attachments/assets/8c29eff0-0eb5-40b7-8c00-983ea81412e2" style="max-width: 100%; height: auto; max-height: 968px;; aspect-ratio: 1354 / 968; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+<pre class="notranslate"><code class="notranslate">kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/1.19.3/examples/minikube/sw_l3_l4_l7_policy.yaml
+</code></pre>
+<pre class="notranslate"><code class="notranslate">apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "rule1"
+spec:
+  description: "L7 policy to restrict access to specific HTTP call"
+  endpointSelector:
+    matchLabels:
+      org: empire
+      class: deathstar
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        org: empire
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "POST"
+          path: "/v1/request-landing"
+</code></pre>
+<p>现在我们可以重新运行上述相同的测试，但会看到不同的结果：</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+Ship landed
+</code></pre>
+<p>和</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+Access denied
+</code></pre>
+<p>由于此规则建立在身份感知规则之上，因此来自没有标签的 pod 的流量 <code class="notranslate">org=empire</code>将继续被丢弃，导致连接超时：</p>
+<pre class="notranslate"><code class="notranslate">kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+</code></pre>
+<p>如您所见，借助 Cilium L7 安全策略，我们能够仅允许 <em>tiefighter</em>访问<em>deathstar</em>上所需的 API 资源，从而为微服务之间的通信实现“最小权限”安全方法。请注意，它<code class="notranslate">path</code>匹配的是精确的 URL，例如，如果您想允许访问 /v1/ 下的所有内容，则需要使用正则表达式：</p>
+<pre class="notranslate"><code class="notranslate">path: "/v1/.*"
+</code></pre>
+<p>可以通过以下方式查看 L7 策略：</p>
+<pre class="notranslate"><code class="notranslate">$ kubectl describe ciliumnetworkpolicies
+Name:         rule1
+Namespace:    default
+Labels:       &lt;none&gt;
+Annotations:  API Version:  cilium.io/v2
+Description:  L7 policy to restrict access to specific HTTP call
+Kind:         CiliumNetworkPolicy
+Metadata:
+  Creation Timestamp:  2020-06-15T14:06:48Z
+  Generation:          2
+  Managed Fields:
+    API Version:  cilium.io/v2
+    Fields Type:  FieldsV1
+    fieldsV1:
+      f:description:
+      f:metadata:
+        f:annotations:
+          .:
+          f:kubectl.kubernetes.io/last-applied-configuration:
+      f:spec:
+        .:
+        f:endpointSelector:
+          .:
+          f:matchLabels:
+            .:
+            f:class:
+            f:org:
+        f:ingress:
+    Manager:         kubectl
+    Operation:       Update
+    Time:            2020-06-15T14:10:46Z
+  Resource Version:  3445
+  Self Link:         /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+  UID:               eb3a688b-b3aa-495c-b20a-d4f79e7c088d
+Spec:
+  Endpoint Selector:
+    Match Labels:
+      Class:  deathstar
+      Org:    empire
+  Ingress:
+    From Endpoints:
+      Match Labels:
+        Org:  empire
+    To Ports:
+      Ports:
+        Port:      80
+        Protocol:  TCP
+      Rules:
+        Http:
+          Method:  POST
+          Path:    /v1/request-landing
+Events:            &lt;none&gt;
+</code></pre>
+<p>也可以进cilium-dbg的容器，使用cli：</p>
+<pre class="notranslate"><code class="notranslate">$ kubectl -n kube-system exec cilium-qh5l2 -- cilium-dbg policy get
+[
+  {
+    "endpointSelector": {
+      "matchLabels": {
+        "any:class": "deathstar",
+        "any:org": "empire",
+        "k8s:io.kubernetes.pod.namespace": "default"
+      }
+    },
+    "ingress": [
+      {
+        "fromEndpoints": [
+          {
+            "matchLabels": {
+              "any:org": "empire",
+              "k8s:io.kubernetes.pod.namespace": "default"
+            }
+          }
+        ],
+        "toPorts": [
+          {
+            "ports": [
+              {
+                "port": "80",
+                "protocol": "TCP"
+              }
+            ],
+            "rules": {
+              "http": [
+                {
+                  "path": "/v1/request-landing",
+                  "method": "POST"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "labels": [
+      {
+        "key": "io.cilium.k8s.policy.derived-from",
+        "value": "CiliumNetworkPolicy",
+        "source": "k8s"
+      },
+      {
+        "key": "io.cilium.k8s.policy.name",
+        "value": "rule1",
+        "source": "k8s"
+      },
+      {
+        "key": "io.cilium.k8s.policy.namespace",
+        "value": "default",
+        "source": "k8s"
+      },
+      {
+        "key": "io.cilium.k8s.policy.uid",
+        "value": "eb3a688b-b3aa-495c-b20a-d4f79e7c088d",
+        "source": "k8s"
+      }
+    ]
+  }
+]
+Revision: 11
+
+</code></pre>
+<p>清理所有Demo：</p>
+<pre class="notranslate"><code class="notranslate">kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/1.19.3/examples/minikube/http-sw-app.yaml 
+kubectl delete cnp rule1
+</code></pre>
+<p>这个小的演示流程展示了Cilium在七层路由的特点，它可以实现类似istio的基于互联网协议的流量管控。</p>
+<p>不过不同于istio的服务网格：在每个 Pod 里都注入一个 Envoy 代理容器,所有进出流量都被 Envoy 拦截,由它来做流量的加密、路由、监控。</p>
+<p>Cilium的能力更强：Pod IP 会变(扩缩容、重启),如果策略规则写"允许 IP 10.244.1.5 访问 10.244.2.8",Pod 一重建就失效了。如果给每对 Pod IP 都写 iptables 规则,集群一大规则爆炸。基于identity进行流量管理，把一组标签相同的 Pod 归为一个 identity,分配一个数字 ID(比如 class=tiefighter 的所有 Pod 都是 identity 12345)。每个数据包在 Cilium 里都带上来源 identity(通过 eBPF 写在包元数据里),节点收到包后查一下 identity 之间是否允许通信就行。Pod 数量变化不影响规则数量,只跟标签组合数有关,可扩展性好得多。</p>
+<p>当然，这里提及一点：</p>
+<h5>寻址 ≠ 鉴权,这是两件事</h5>
+<p>网络通信里有两个独立的问题:</p>
+<ol>
+<li><strong>寻址(routing)</strong>:这个包要送到哪台机器?走什么路径?</li>
+<li><strong>鉴权(policy)</strong>:这个包<strong>允许</strong>送过去吗?</li>
+</ol>
+<ul>
+<li><strong>IP</strong> 解决问题 1</li>
+<li><strong>identity</strong> 解决问题 2</li>
+</ul>
+<p>Cilium 没有发明新的寻址机制,它<strong>仍然用 IP 路由</strong>把包送到目标 Pod。identity 只在判断"允不允许"的时候用。</p>
+<h3>完整流程:帝国 → deathstar</h3>
+<p>假设帝国 Pod(IP <code class="notranslate">10.244.1.5</code>)要访问 deathstar Service(ClusterIP <code class="notranslate">10.96.0.5:80</code>),后端 Pod IP 是 <code class="notranslate">10.244.2.8</code>。</p>
+<p><strong>步骤 1:Service 解析(还是 IP 在干活)</strong></p>
+<p>Cilium(或 kube-proxy)做 DNAT,把目标地址 <code class="notranslate">10.96.0.5:80</code> 改成真实 Pod IP <code class="notranslate">10.244.2.8:80</code>。</p>
+<p><strong>步骤 2:发送端打标签</strong></p>
+<p>包从帝国 Pod 出来时,<strong>源节点</strong>的 eBPF 程序查表:</p>
+<blockquote>
+<p>"这个 Pod IP <code class="notranslate">10.244.1.5</code> 属于哪个 identity?" → identity <code class="notranslate">12345</code>(帝国)</p>
+</blockquote>
+<p>然后把 identity <code class="notranslate">12345</code> 这个数字<strong>编码进数据包</strong>(通过 VXLAN header、IPSec/WireGuard 字段、或者特殊 IP 选项,取决于你的 datapath 模式)。</p>
+<p><strong>步骤 3:正常 IP 路由送过去</strong></p>
+<p>包按照<strong>普通的 IP 路由</strong>(VXLAN 隧道 / 直接路由 / 云厂商 CNI)送到目标 Pod 所在的节点。这一段<strong>和普通 K8s 网络没区别</strong>,没有什么"identity 寻路"。</p>
+<p><strong>步骤 4:接收端鉴权</strong></p>
+<p>包到达目标节点时,eBPF 程序拆出包里的 identity:</p>
+<blockquote>
+<p>来源 identity <code class="notranslate">12345</code> → 本地 Pod <code class="notranslate">10.244.2.8</code>(identity <code class="notranslate">67890</code>,deathstar)</p>
+<p>查策略表:<code class="notranslate">12345 → 67890:80/TCP</code> 允许吗?</p>
+</blockquote>
+<p>允许就放行交给 Pod,不允许就 drop。</p>
+<p><strong>步骤 5:Pod 收到包</strong></p>
+<p>deathstar 容器收到一个普通的 TCP 包,从它的视角看一切都是标准 IP 网络。</p>
+<h5>关键点:identity 是"乘客信息",不是"地址"</h5>
+<p>IP → identity 的对应表：Cilium 在每个节点维护一份映射表(<code class="notranslate">cilium endpoint list</code> 可以看到):</p>
+<pre class="notranslate"><code class="notranslate">kubectl -n kube-system exec ds/cilium -- cilium endpoint list
+kubectl -n kube-system exec ds/cilium -- cilium identity list
+
+
+ENDPOINT   IDENTITY   IPv4              LABELS
+1234       12345      10.244.1.5        class=tiefighter
+5678       67890      10.244.2.8        app=deathstar
+</code></pre>
+<p>这份表通过 Cilium agent 之间(或经由 kvstore / Kubernetes API)同步,所以<strong>每个节点都知道"哪个 IP 属于哪个 identity"</strong>。</p>
+<p>Cilium能大一统K8S的网络，不只是靠他的identity，也在于它有一个强大的可视化应用，可以帮助运维同事看到已经配置的网络策略和实际的业务流量。</p>
+<p>精巧的GUI，你可以清晰的看到不同namespace下的流量流向：</p>
+<pre class="notranslate"><code class="notranslate">cilium hubble ui 
+</code></pre>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/86eebb1e-507d-4c14-8c48-fa3fd2039e22"><img width="1611" height="929" alt="Image" src="https://github.com/user-attachments/assets/86eebb1e-507d-4c14-8c48-fa3fd2039e22" style="max-width: 100%; height: auto; max-height: 929px;; aspect-ratio: 1611 / 929; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+不够炫酷？
+<pre class="notranslate"><code class="notranslate">cilium connectivity test
+</code></pre>
+<p>官方提供了一键test命令，使用之后会产生很多拟真Pod和对应的流量，试试看！</p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/082ebb3a-08fd-4e1f-8370-386360e500b1"><img width="1611" height="929" alt="Image" src="https://github.com/user-attachments/assets/082ebb3a-08fd-4e1f-8370-386360e500b1" style="max-width: 100%; height: auto; max-height: 929px;; aspect-ratio: 1611 / 929; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+<p>对于我司的业务：华为云上CCE仍然用的原来的那一套，如果要用Cilium的话，加钱上CCE Turbo就好了。战未来嘛～</p>
+<p>最后，</p>
+<p>想好了说再见？</p>
+<pre class="notranslate"><code class="notranslate">kind delete cluster --name cilium-lab  
+</code></pre></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

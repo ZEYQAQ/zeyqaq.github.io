@@ -136,7 +136,7 @@ kubectl -n kube-system get pods -o wide 2&gt;&amp;1 | head -20; echo '---'; kube
 <p>看他们的Demo就能明白：</p>
 <p>StarWarDemo：</p>
 <p>在我们这个受《星球大战》启发的示例中，有三个微服务应用：死星（Deathstar）、帝国（Tiefighter）和联盟（Xwing）。死星运行在80端口的HTTP Web服务，该服务以Kubernetes Service的形式暴露，用于在两个Pod副本之间进行负载均衡。死星服务为帝国的飞船提供着陆服务，以便它们可以请求着陆港。帝国Pod代表典型帝国飞船上的着陆请求客户端服务，而联盟Pod则代表联盟飞船上的类似服务。它们的存在是为了测试针对死星着陆服务的不同访问控制安全策略。<br>
-<a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/65ceb0ec-20aa-4cbf-be22-81e85ad535bb"><img width="1294" height="920" alt="Image" src="https://github.com/user-attachments/assets/65ceb0ec-20aa-4cbf-be22-81e85ad535bb" style="max-width: 100%; height: auto; max-height: 920px;; aspect-ratio: 1294 / 920; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a><br>
+<a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/65ceb0ec-20aa-4cbf-be22-81e85ad535bb"><img width="1294" height="920" alt="Image" src="https://github.com/user-attachments/assets/65ceb0ec-20aa-4cbf-be22-81e85ad535bb" style="max-width: 100%; height: auto; max-height: 920px;; aspect-ratio: 1294 / 920; background-color: var(--bgColor-muted); border-radius: 6px" class="js-gh-image-fallback"></a><br>
 http-sw-app.yaml中包含了三个服务的deployment，每个deployment使用k8s的label： (<code class="notranslate">org=empire, class=deathstar</code>), (<code class="notranslate">org=empire, class=tiefighter</code>),  (<code class="notranslate">org=alliance, class=xwing</code>)，来区分。此外文件中还定义了一个svc，给Deathstar，这个svc负责将流量分配到所有打了 (<code class="notranslate">org=empire, class=deathstar</code>)标签的Pod上面。</p>
 <pre class="notranslate"><code class="notranslate">kubectl create -f https://raw.githubusercontent.com/cilium/cilium/1.19.3/examples/minikube/http-sw-app.yaml
 </code></pre>
@@ -238,7 +238,7 @@ spec:
       - port: "80"
         protocol: TCP
 </code></pre>
-<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/e2448be5-ea30-4c67-a246-819e6be27db6"><img width="1308" height="926" alt="Image" src="https://github.com/user-attachments/assets/e2448be5-ea30-4c67-a246-819e6be27db6" style="max-width: 100%; height: auto; max-height: 926px;; aspect-ratio: 1308 / 926; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/e2448be5-ea30-4c67-a246-819e6be27db6"><img width="1308" height="926" alt="Image" src="https://github.com/user-attachments/assets/e2448be5-ea30-4c67-a246-819e6be27db6" style="max-width: 100%; height: auto; max-height: 926px;; aspect-ratio: 1308 / 926; background-color: var(--bgColor-muted); border-radius: 6px" class="js-gh-image-fallback"></a></p>
 再试一下尝试降落：
 <pre class="notranslate"><code class="notranslate">kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
 #Ship landed
@@ -254,7 +254,7 @@ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1
 kubectl describe cnp rule1
 </code></pre>
 <p>以上是四层网络的转发，当你想更进一步，比如仅仅向开放一些特定的API（比如限制<em>tiefighter</em>只能发起 POST /v1/request-landing API 调用，而禁止所有其他调用（包括 PUT /v1/exhaust-port）。）那就可以继续：</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/8c29eff0-0eb5-40b7-8c00-983ea81412e2"><img width="1354" height="968" alt="Image" src="https://github.com/user-attachments/assets/8c29eff0-0eb5-40b7-8c00-983ea81412e2" style="max-width: 100%; height: auto; max-height: 968px;; aspect-ratio: 1354 / 968; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/8c29eff0-0eb5-40b7-8c00-983ea81412e2"><img width="1354" height="968" alt="Image" src="https://github.com/user-attachments/assets/8c29eff0-0eb5-40b7-8c00-983ea81412e2" style="max-width: 100%; height: auto; max-height: 968px;; aspect-ratio: 1354 / 968; background-color: var(--bgColor-muted); border-radius: 6px" class="js-gh-image-fallback"></a></p>
 <pre class="notranslate"><code class="notranslate">kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/1.19.3/examples/minikube/sw_l3_l4_l7_policy.yaml
 </code></pre>
 <pre class="notranslate"><code class="notranslate">apiVersion: "cilium.io/v2"
@@ -471,12 +471,12 @@ ENDPOINT   IDENTITY   IPv4              LABELS
 <p>精巧的GUI，你可以清晰的看到不同namespace下的流量流向：</p>
 <pre class="notranslate"><code class="notranslate">cilium hubble ui 
 </code></pre>
-<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/86eebb1e-507d-4c14-8c48-fa3fd2039e22"><img width="1611" height="929" alt="Image" src="https://github.com/user-attachments/assets/86eebb1e-507d-4c14-8c48-fa3fd2039e22" style="max-width: 100%; height: auto; max-height: 929px;; aspect-ratio: 1611 / 929; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/86eebb1e-507d-4c14-8c48-fa3fd2039e22"><img width="1611" height="929" alt="Image" src="https://github.com/user-attachments/assets/86eebb1e-507d-4c14-8c48-fa3fd2039e22" style="max-width: 100%; height: auto; max-height: 929px;; aspect-ratio: 1611 / 929; background-color: var(--bgColor-muted); border-radius: 6px" class="js-gh-image-fallback"></a></p>
 不够炫酷？
 <pre class="notranslate"><code class="notranslate">cilium connectivity test
 </code></pre>
 <p>官方提供了一键test命令，使用之后会产生很多拟真Pod和对应的流量，试试看！</p>
-<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/082ebb3a-08fd-4e1f-8370-386360e500b1"><img width="1611" height="929" alt="Image" src="https://github.com/user-attachments/assets/082ebb3a-08fd-4e1f-8370-386360e500b1" style="max-width: 100%; height: auto; max-height: 929px;; aspect-ratio: 1611 / 929; background-color: var(--bgColor-muted); border-radius: 6px; display: block" class="js-gh-image-fallback"></a></p>
+<p><a target="_blank" rel="noopener noreferrer" href="https://github.com/user-attachments/assets/082ebb3a-08fd-4e1f-8370-386360e500b1"><img width="1611" height="929" alt="Image" src="https://github.com/user-attachments/assets/082ebb3a-08fd-4e1f-8370-386360e500b1" style="max-width: 100%; height: auto; max-height: 929px;; aspect-ratio: 1611 / 929; background-color: var(--bgColor-muted); border-radius: 6px" class="js-gh-image-fallback"></a></p>
 <p>对于我司的业务：华为云上CCE仍然用的原来的那一套，如果要用Cilium的话，加钱上CCE Turbo就好了。战未来嘛～</p>
 <p>最后，</p>
 <p>想好了说再见？</p>

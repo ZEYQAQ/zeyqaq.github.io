@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="```
+#openssl是一个由C语言写的开源的密码学工具包。">
+<meta property="og:title" content="TLS那些事儿">
+<meta property="og:description" content="```
+#openssl是一个由C语言写的开源的密码学工具包。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/TLS-na-xie-shi-er.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>TLS那些事儿</title>
+<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">TLS那些事儿</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/80" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><pre class="notranslate"><code class="notranslate">#openssl是一个由C语言写的开源的密码学工具包。
+dnf install -y openssl
+</code></pre>
+<p>公钥和私钥怎么转为明文？</p>
+<p>密钥文件本身是 Base64 编码（PEM）或二进制（DER），<code class="notranslate">-----BEGIN ... -----</code> 中间那段 Base64 是结构化数据，要靠 openssl 才能解析成可读字段。"转明文"通常是指用 openssl 解析出里面的结构化信息：</p>
+<pre class="notranslate"><code class="notranslate"># 查看私钥内容（模数、指数等）（PEM 文件中间那段 Base64 本身不是"密文",只是把二进制 DER 数据编码成了文本,任何人都能解码。它不需要"解密"。）
+openssl rsa -in private.key -text -noout
+
+# 查看公钥
+openssl rsa -in public.key -pubin -text -noout
+
+# 解密带密码的私钥（这里的带密码是指的私钥文件用密码加密过(有Proc-Type: ENCRYPTED)）
+openssl rsa -in encrypted.key -out decrypted.key
+
+# DER（二进制）转 PEM（Base64 文本）
+openssl pkey -inform der -in key.der -outform pem -out key.pem
+
+# 从私钥提取公钥（PEM 里物理上就存着公钥,同时数学上私钥本来就能算出公钥）
+openssl rsa -in xx.pem -pubout -out public.pem
+</code></pre>
+<pre class="notranslate"><code class="notranslate">openssl rsa -in xxx.pem -text -noout的各字段含义：
+
+RSA Private-Key: (2048 bit, 2 primes)：这是一个 2048 位的 RSA 私钥，由 2 个质数生成。
+modulus (n)：模数，等于两个大质数的乘积（prime1 × prime2），是公钥和私钥共享的部分。
+publicExponent (e)：公钥指数，65537 是 RSA 的标准值。
+privateExponent (d)：私钥指数，加密/签名运算的核心秘密。
+prime1 (p) / prime2 (q)：生成模数的两个大质数，绝对机密。
+exponent1 / exponent2 / coefficient：用于中国剩余定理（CRT）加速 RSA 运算的预计算值，也属于私钥的一部分。
+
+命令最后的 -noout 表示不输出原始 PEM 编码内容，只显示解析后的数学参数。
+</code></pre>
+<p>crt 和 pem 的区别？</p>
+<p>这俩主要是扩展名的差异，不是格式差异，经常被混用。PEM 是一种编码格式：Base64 + <code class="notranslate">-----BEGIN XXX-----</code> / <code class="notranslate">-----END XXX-----</code> 头尾。可以装证书、私钥、CSR、证书链等任何东西。CRT/CER 是用途标识：表示这是个证书文件。内容可以是 PEM（文本），也可以是 DER（二进制）。</p>
+<p>经验法则:Linux 上的 <code class="notranslate">.crt</code> 基本都是 PEM 格式;Windows 导出的 <code class="notranslate">.cer</code> 经常是 DER 二进制。用 <code class="notranslate">file</code> 命令或者文本编辑器打开看一眼就知道——能看到 <code class="notranslate">BEGIN CERTIFICATE</code> 就是 PEM。</p>
+<p>互转：</p>
+<pre class="notranslate"><code class="notranslate"># DER → PEM
+openssl x509 -inform der -in cert.crt -out cert.pem
+
+# PEM → DER  
+openssl x509 -in cert.pem -outform der -out cert.crt
+</code></pre>
+<p>域名证书的 PEM 里有什么？</p>
+<p>一个用于部署的域名证书 PEM 文件（通常叫 fullchain.pem）一般是多张证书拼在一起：</p>
+<pre class="notranslate"><code class="notranslate">-----BEGIN CERTIFICATE-----
+（域名证书，end-entity / leaf cert）
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+（中间 CA 证书，intermediate）
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+（有时还有第二张中间证书）
+-----END CERTIFICATE-----
+</code></pre>
+<p>根证书一般不放进去，因为客户端（浏览器/系统）已内置。Let's Encrypt 签发的证书包含这些文件：</p>
+<ul>
+<li><code class="notranslate">cert.pem</code> — 域名证书</li>
+<li><code class="notranslate">chain.pem</code> — 中间 CA 链</li>
+<li><code class="notranslate">fullchain.pem</code> — 上面两个拼接（nginx 用这个）</li>
+<li><code class="notranslate">privkey.pem</code> — 私钥（单独保存，不会和证书放一起）</li>
+</ul>
+<pre class="notranslate"><code class="notranslate">openssl x509 -in scs1738827573590__.zeyqaq.com_server.crt -text -noout
+ 
+所含内容：
+基本信息
+证书版本：v3
+序列号：3b:7f:2c:41:44:c9:83:cc:d4:c0:1b:8b:f9:46:7d:d9
+签名算法：sha384WithRSAEncryption
+
+颁发者（Issuer）
+国家：CN（中国）
+组织：DNSPod, Inc.（腾讯云旗下）
+CN：DNSPod RSA DV（域名验证型证书）
+
+使用者（Subject）
+CN：*.zeyqaq.com（通配符证书）
+
+有效期
+
+生效时间：2025 年 2 月 6 日
+到期时间：2026 年 2 月 13 日
+
+算法：RSA
+长度：2048 位
+指数：65537
+
+关键扩展项
+密钥用途：数字签名、密钥加密
+扩展密钥用途：TLS 服务器认证、TLS 客户端认证
+是否为 CA 证书：否（CA:FALSE，是终端实体证书）
+覆盖域名（SAN）：*.zeyqaq.com
+
+其他
+CA 颁发地址：http://crt.trust-provider.cn/DNSPodRSADV.crt
+OCSP 校验地址（OCSP Responder是给客户端去查吊销状态用的）：http://ocsp.trust-provider.cn
+CT 日志（SCT）：包含 3 条证书透明度日志记录，用于公开审计
+证书策略：包含 DV（域名验证）级别的策略 OID（2.23.140.1.2.1）
+</code></pre>
+<p>服务器证书本身包含什么</p>
+<p>服务器证书是一个 X.509 结构，主要字段有：</p>
+<ul>
+<li>Subject：CN（Common Name，主域名）、O（组织）、C（国家）等</li>
+<li>Subject Alternative Name (SAN)：实际生效的域名列表，比如 <code class="notranslate">example.com</code>、<code class="notranslate">*.example.com</code>、<code class="notranslate">www.example.com</code>。现代浏览器只看 SAN，不再看 CN。</li>
+<li>公钥：服务器的公钥（私钥不在里面！私钥永远只在服务器上）</li>
+<li>Issuer：签发它的 CA 信息</li>
+<li>有效期：Not Before / Not After</li>
+<li>序列号、签名算法（如 SHA256-RSA、ECDSA）</li>
+<li>扩展字段：Key Usage、Extended Key Usage（TLS Web Server Authentication）、CRL 分发点、OCSP 地址等</li>
+<li>CA 的签名：用 CA 私钥对上面所有内容的签名，客户端用 CA 公钥验证</li>
+</ul>
+<p>所有可信 CA 都在这里：</p>
+<pre class="notranslate"><code class="notranslate">#Debian：
+ls /etc/ssl/certs/
+ls /usr/share/ca-certificates/
+#CentOS：
+ls /etc/pki/ca-trust/source/anchors/
+ls /etc/pki/tls/certs/
+#MacOS：
+security find-certificate -a -p /Library/Keychains/System.keychain 
+#Windows：
+Get-ChildItem -Path Cert:\LocalMachine\Root      # 受信任的根
+Get-ChildItem -Path Cert:\LocalMachine\My        # 个人证书
+Get-ChildItem -Path Cert:\CurrentUser\My         # 当前用户的个人证书
+</code></pre>
+<pre class="notranslate"><code class="notranslate">华为云ECS虚拟机的某个证书：
+身份：ACCVRAIZ1 根证书
+
+颁发机构：ACCV（Autoritat de Certificació de la Comunitat Valenciana，西班牙瓦伦西亚自治区认证局）
+国家：ES（西班牙）
+这是一张自签名根证书（Issuer 和 Subject 相同）
+
+有效期：2011-05-05 至 2030-12-31
+密钥与签名：
+
+RSA 4096 位公钥（强度够）
+签名算法是 sha1WithRSAEncryption（SHA-1 目前已被认为不够安全，但对根证书的影响较小，因为根证书是靠"被预置在信任库里"而不是靠签名被验证来建立信任）
+
+关键扩展字段：
+
+CA:TRUE（critical）：是一张 CA 证书，可以签发下级证书
+Key Usage：Certificate Sign, CRL Sign（只能用于签名证书和吊销列表）
+OCSP 地址：http://ocsp.accv.es
+CRL 地址：accv.es 上的吊销列表
+联系邮箱：accv@accv.es
+</code></pre>
+<p>如何用nginx配置一个最小的https服务？</p>
+<p>最小可用配置：</p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c1">server</span> <span class="pl-c1">{</span>
+    <span class="pl-c1">listen</span> <span class="pl-c1">443</span> <span class="pl-c1">ssl</span><span class="pl-c1">;</span>
+    http2 on<span class="pl-c1">;</span>
+    <span class="pl-c1">server_name</span> example.com www.example.com<span class="pl-c1">;</span>
+
+    <span class="pl-c1">ssl_certificate</span>     /etc/nginx/<span class="pl-c1">ssl</span>/fullchain.pem<span class="pl-c1">;</span>   # 含完整证书链
+    <span class="pl-c1">ssl_certificate_key</span> /etc/nginx/<span class="pl-c1">ssl</span>/privkey.pem<span class="pl-c1">;</span>     # 私钥，权限 <span class="pl-c1">600</span>
+
+    <span class="pl-c1">ssl_protocols</span>       TLSv1.2 TLSv1.3<span class="pl-c1">;</span>
+    <span class="pl-c1">ssl_ciphers</span>         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305<span class="pl-c1">;</span>
+    <span class="pl-c1">ssl_prefer_server_ciphers</span> off<span class="pl-c1">;</span>
+
+    <span class="pl-c1">ssl_session_cache</span>   shared:SSL:<span class="pl-c1">10m</span><span class="pl-c1">;</span>
+    <span class="pl-c1">ssl_session_timeout</span> <span class="pl-c1">1d</span><span class="pl-c1">;</span>
+    <span class="pl-c1">ssl_session_tickets</span> off<span class="pl-c1">;</span>
+
+<span class="pl-c">    # HSTS（可选，但谨慎开启，开了就难撤回）</span>
+    <span class="pl-c1">add_header</span> Strict-Transport-Security <span class="pl-s">"max-age=63072000"</span> always<span class="pl-c1">;</span>
+
+<span class="pl-c">    # OCSP Stapling（可选，提升握手性能）</span>
+    <span class="pl-c1">ssl_stapling</span> on<span class="pl-c1">;</span>
+    <span class="pl-c1">ssl_stapling_verify</span> on<span class="pl-c1">;</span>
+
+    <span class="pl-c1">location</span> / <span class="pl-c1">{</span>
+        <span class="pl-c1">proxy_pass</span> <span class="pl-c1">http</span>://<span class="pl-c1">127.0.0.1:8080</span><span class="pl-c1">;</span>
+    <span class="pl-c1">}</span>
+<span class="pl-c1">}</span>
+
+<span class="pl-c"># 顺便把 HTTP 重定向到 HTTPS</span>
+<span class="pl-c1">server</span> <span class="pl-c1">{</span>
+    <span class="pl-c1">listen</span> <span class="pl-c1">80</span><span class="pl-c1">;</span>
+    <span class="pl-c1">server_name</span> example.com www.example.com<span class="pl-c1">;</span>
+    <span class="pl-k">return</span> <span class="pl-c1">301</span> https://<span class="pl-v">$host$request_uri</span><span class="pl-c1">;</span>
+<span class="pl-c1">}</span></pre></div>
+<p>几个关键点：</p>
+<ol>
+<li><code class="notranslate">ssl_certificate</code> 必须是 fullchain（域名证书 + 中间证书），只放叶子证书会导致部分客户端报"证书链不完整"。</li>
+<li>私钥权限设严：<code class="notranslate">chmod 600 privkey.pem</code>，属主设成 root 或 nginx 用户。</li>
+<li>改完先测试再 reload</li>
+</ol>
+<div class="highlight highlight-source-shell"><pre class="notranslate">   nginx -t <span class="pl-k">&amp;&amp;</span> nginx -s reload</pre></div>
+<ol>
+<li>
+<p>验证部署：用 <code class="notranslate">openssl s_client -connect example.com:443 -servername example.com</code> 看握手细节，或者直接上 <a href="https://www.ssllabs.com/ssltest/" rel="nofollow">SSL Labs</a> 跑一下评分。</p>
+</li>
+<li>
+<p>多域名：如果一个 IP 上有多个 HTTPS 站，写多个 <code class="notranslate">server</code> 块，每个用自己的 <code class="notranslate">server_name</code> 和证书，nginx 通过 SNI 自动区分即可。</p>
+</li>
+<li>
+<p>访问时，服务器把公钥主动发给客户端,客户端不需要事先知道。</p>
+</li>
+<li>
+<p>HTTPS 握手时公钥怎么传：</p>
+</li>
+</ol>
+<p>TLS 1.2简化流程:</p>
+<pre class="notranslate"><code class="notranslate">客户端                                  服务器
+  │                                       │
+  │──────── ClientHello ─────────────────&gt;│  我支持这些 TLS 版本和 cipher
+  │                                       │
+  │&lt;─────── ServerHello + 证书 ───────────│  这是我的证书(里面有公钥)
+  │                                       │
+  │ 验证证书:                              │
+  │ - 是不是受信任 CA 签的?                 │
+  │ - 域名对不对?                          │
+  │ - 有效期内吗?                          │
+  │                                       │
+  │──── 服务器用证书里公钥对应的私钥给握手参数签名，
+         客户端用证书里的公钥验证签名，
+           确认对方确实持有私钥 ────────────&gt;│
+  │                                       │
+  │&lt;──────── 握手完成,开始加密通信 ────────│
+</code></pre>
+<p>关键点:服务器证书(<code class="notranslate">ssl_certificate</code> 指向的 <code class="notranslate">fullchain.pem</code>)本身就包含了公钥。客户端连上来时,服务器把这张证书发过去,公钥就传给客户端了。</p>
+<ol start="6">
+<li>那"公钥"到底放在哪里？</li>
+</ol>
+<p>回到证书内容,服务器上你只需要保管两个东西:</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>文件</th>
+<th>含什么</th>
+<th>谁能看</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">fullchain.pem</code> (证书)</td>
+<td><strong>公钥</strong> + 域名信息 + CA 签名 + 证书链</td>
+<td>公开,谁连服务器都会拿到</td>
+</tr>
+<tr>
+<td><code class="notranslate">privkey.pem</code> (私钥)</td>
+<td><strong>私钥</strong></td>
+<td>绝密,只能放在服务器上,权限 600</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>公钥已经嵌在证书里了,你不需要再单独存一个公钥文件给客户端。</p>
+<ol start="7">
+<li>客户端怎么"信任"这个公钥</li>
+</ol>
+<p>这就是 CA(证书颁发机构)体系的作用:</p>
+<ol>
+<li>客户端(浏览器/操作系统)预装了一堆受信任的根 CA 证书(比如 Let's Encrypt、DigiCert、GlobalSign 的根证书)</li>
+<li>你的域名证书是被某个 CA(或它的中间 CA)签过名的</li>
+<li>客户端拿到你的证书后,用 CA 的公钥验证你的证书签名——签名对得上,就证明这张证书(以及里面的公钥)是真的属于这个域名的</li>
+<li>验证通过后,客户端就放心用证书里的公钥参与后续握手</li>
+</ol>
+<p>所以信任链是:客户端预装的根 CA → 中间 CA → 你的域名证书(含公钥)。</p>
+<ol start="8">
+<li>客户端不需要预先有你的公钥</li>
+</ol>
+<p>普通用户访问 <code class="notranslate">https://example.com</code>:</p>
+<ul>
+<li>❌ 不需要事先下载你的公钥</li>
+<li>❌ 不需要安装你的证书</li>
+<li>✅ 只要他的浏览器/系统信任签发你证书的 CA 就行</li>
+</ul>
+<p>这就是 HTTPS 能给陌生人用的根本原因——信任根 CA,而不是信任每一个网站。</p>
+<ol start="9">
+<li>什么时候才需要手动给客户端公钥/证书</li>
+</ol>
+<p>只有这些特殊场景:</p>
+<ol>
+<li>自签名证书(没有 CA 签):客户端必须手动把你的证书加到信任库,否则会报"不安全"</li>
+<li>私有 CA:公司内网自己当 CA,得把这个内部根 CA 装到员工电脑上</li>
+<li>mTLS(双向认证):服务器还要验证客户端的身份,这时客户端也得有自己的证书和私钥,服务器需要客户端 CA 证书来验证</li>
+</ol>
+<p>普通公网 HTTPS(用 Let's Encrypt、阿里云、腾讯云这种正规 CA 签的证书)啥都不用提前给客户端,买完证书部署到 nginx,谁都能直接访问。</p>
+<p>pem中存了公钥吗？我怎么用私钥计算公钥？</p>
+<ol>
+<li>PEM 文件里真的物理存了公钥</li>
+</ol>
+<p>一个 RSA 私钥 PEM 文件解码出来,是个 ASN.1 结构,叫 <code class="notranslate">RSAPrivateKey</code>(PKCS#1 标准),长这样:</p>
+<pre class="notranslate"><code class="notranslate">RSAPrivateKey ::= SEQUENCE {
+    version           INTEGER,       -- 版本号
+    modulus           INTEGER,       -- n  ← 公钥组成 1
+    publicExponent    INTEGER,       -- e  ← 公钥组成 2
+    privateExponent   INTEGER,       -- d  ← 私钥核心
+    prime1            INTEGER,       -- p
+    prime2            INTEGER,       -- q
+    exponent1         INTEGER,       -- d mod (p-1)
+    exponent2         INTEGER,       -- d mod (q-1)
+    coefficient       INTEGER        -- q^(-1) mod p
+}
+</code></pre>
+<p>注意前两个字段 n 和 e——这就是公钥的全部内容。RSA 的公钥就是 <code class="notranslate">(n, e)</code> 这一对数,而它俩就大大方方地存在私钥文件的开头。</p>
+<p><code class="notranslate">openssl rsa -pubout</code> 做的事就是:把前两个字段 <code class="notranslate">(n, e)</code> 单独抠出来,重新打包成公钥格式输出。</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate">openssl rsa -in KeyPair-flagship-prod-com.pem -text -noout</pre></div>
+<p>输出会是类似这样:</p>
+<pre class="notranslate"><code class="notranslate">Private-Key: (2048 bit, 2 primes)
+modulus:                    ← 这就是 n,公钥的一部分
+    00:c1:23:45:67:...
+publicExponent: 65537 (0x10001)   ← 这就是 e
+privateExponent:            ← 这是 d,私钥的核心
+    00:9a:bc:de:...
+prime1:                     ← p
+    ...
+prime2:                     ← q
+    ...
+</code></pre>
+<ol start="2">
+<li>数学上也根本不需要"存",能算</li>
+</ol>
+<p>即使私钥文件只存了 <code class="notranslate">d, p, q</code>(私钥本质部分),也能算出公钥:</p>
+<ul>
+<li><code class="notranslate">n = p × q</code>(两个大质数相乘)</li>
+<li><code class="notranslate">e</code> 一般固定是 <code class="notranslate">65537</code>,而且就算不固定,也能从 d 和 p、q 反推</li>
+</ul>
+<p>所以"从私钥导出公钥"在 RSA 里是天然成立的,只是 PEM 格式为了快、也为了通用,直接把公钥部分一起存了,省得每次用都要重算。</p>
+<ol start="3">
+<li>反过来呢:能从公钥推出私钥吗?</li>
+</ol>
+<p>不能。这就是 RSA 的安全基础:</p>
+<ul>
+<li>公钥 = <code class="notranslate">(n, e)</code></li>
+<li>私钥 = <code class="notranslate">(d)</code>(加上 <code class="notranslate">p, q</code> 之类的辅助)</li>
+<li>算出 <code class="notranslate">d</code> 需要知道 <code class="notranslate">p</code> 和 <code class="notranslate">q</code></li>
+<li>而 从 <code class="notranslate">n</code> 分解出 <code class="notranslate">p × q</code> 在 <code class="notranslate">n</code> 足够大(比如 2048 位)时,以现有算力是不可行的</li>
+</ul>
+<p>这叫大整数分解难题,RSA 的安全性完全建立在这个数学难题之上。信息是不对称的:私钥包含公钥,反过来不行。</p>
+<ol start="4">
+<li>一个常见场景验证</li>
+</ol>
+<p>你手上有个私钥,想知道对应的证书/公钥是不是匹配:</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate"><span class="pl-c"><span class="pl-c">#</span> 从私钥算出公钥指纹</span>
+openssl rsa -in privkey.pem -pubout -outform der <span class="pl-k">|</span> openssl sha256
+
+<span class="pl-c"><span class="pl-c">#</span> 从证书取出公钥指纹  </span>
+openssl x509 -in cert.pem -pubkey -noout <span class="pl-k">|</span> \
+  openssl pkey -pubin -outform der <span class="pl-k">|</span> openssl sha256</pre></div>
+<p>两个哈希一样,说明这张证书和这个私钥是配对的——这是部署 HTTPS 之前常做的"配对检查"。</p>
+<p>验证：</p>
+<pre class="notranslate"><code class="notranslate">ssh-keygen -y -f KeyPair-zeyqaq-com.pem
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDE+mDrHcoMnnNhSveG45ILfesnEUTL/RfcsmHIPGnhj9k+fLOEJ2asSUf0L+tjcwcSEzrakNznI0j8y3b9L8JCTit1uZCXrI/nzIHisrbArytWH6nJDrS757b4TEliPVYD01u2mDAba9bsF1vW9T2qK3Ibs2HjHVIo+3Q8MOnU7FgndPMsasSWTqhIZTWS1DrYgal6fbYfq/MplxNy+qmQ3NUS9dYKVoPpCwZGNqFoiDBGQprgOl/9D2EWl8WoOz1jTtjPebLrfZJMglkQpMT5UfEtEBvwui1ShtwPUJUwoeTOFyb31O7XQCICmBXnt0pKD2A6UkK8HD8ugYma4U6l
+
+[root@ecs-zeyqaq eddie]# cat ~/.ssh/authorized_keys
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDE+mDrHcoMnnNhSveG45ILfesnEUTL/RfcsmHIPGnhj9k+fLOEJ2asSUf0L+tjcwcSEzrakNznI0j8y3b9L8JCTit1uZCXrI/nzIHisrbArytWH6nJDrS757b4TEliPVYD01u2mDAba9bsF1vW9T2qK3Ibs2HjHVIo+3Q8MOnU7FgndPMsasSWTqhIZTWS1DrYgal6fbYfq/MplxNy+qmQ3NUS9dYKVoPpCwZGNqFoiDBGQprgOl/9D2EWl8WoOz1jTtjPebLrfZJMglkQpMT5UfEtEBvwui1ShtwPUJUwoeTOFyb31O7XQCICmBXnt0pKD2A6UkK8HD8ugYma4U6l Generated-by-Nova
+</code></pre>
+<p>私钥 不是一个用密码加密保护的数据。它本身就是一组很大的随机数，那为啥我连接的时候，用明文密码，类似于“1234567”，也能登陆？</p>
+<ol>
+<li>那说明服务器<strong>同时</strong>开了密码登录</li>
+</ol>
+<p>SSH 服务器(<code class="notranslate">sshd</code>)支持多种认证方式,可以同时启用。常见的两种是:</p>
+<ol>
+<li>公钥认证(PubkeyAuthentication):用 <code class="notranslate">.pem</code> 私钥登录,不输密码</li>
+<li>密码认证(PasswordAuthentication):用用户名 + 密码登录</li>
+</ol>
+<p>两种是并列关系,不是二选一。服务器开了哪种,客户端就能用哪种登。你能用密码登录,说明这台机器的 <code class="notranslate">sshd</code> 配置里 <code class="notranslate">PasswordAuthentication yes</code>。</p>
+<ol start="2">
+<li>这个密码是哪来的</li>
+</ol>
+<p>不是从 .pem 里"算"出来的,它是系统用户的登录密码——和 Linux 普通用户登录系统的密码是同一个,存在服务器的 <code class="notranslate">/etc/shadow</code> 文件里(以哈希形式)。</p>
+<p>可能的来源:</p>
+<ul>
+<li>服务器管理员给你设的:有人执行过 <code class="notranslate">passwd ec2-user</code> 给账号设置了密码</li>
+<li>创建用户时设的:<code class="notranslate">useradd</code> 时给的密码</li>
+<li>云厂商默认密码:某些镜像(尤其是非 AWS 官方的)会预置密码</li>
+<li>你自己之前设的:可能你自己 <code class="notranslate">passwd</code> 改过</li>
+</ul>
+<p>总之这个 <code class="notranslate">1234567</code> 是有人主动设置到那个 Linux 账号上的密码,和 <code class="notranslate">.pem</code> 私钥毫无关系——两条独立的登录通道,只是恰好都通向同一个账户。****</p></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

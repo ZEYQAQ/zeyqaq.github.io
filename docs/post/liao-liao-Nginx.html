@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="Nginx upstream 内置的负载均衡算法主要有以下几种：
+
+**round-robin（轮询）** — 默认算法，不需要任何指令。">
+<meta property="og:title" content="聊聊Nginx">
+<meta property="og:description" content="Nginx upstream 内置的负载均衡算法主要有以下几种：
+
+**round-robin（轮询）** — 默认算法，不需要任何指令。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/liao-liao-Nginx.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>聊聊Nginx</title>
+<link href="//unpkg.com/@wooorm/starry-night@2.1.1/style/both.css" rel="stylesheet" />
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">聊聊Nginx</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/88" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>Nginx upstream 内置的负载均衡算法主要有以下几种：</p>
+<p><strong>round-robin（轮询）</strong> — 默认算法，不需要任何指令。按顺序依次把请求分发到各后端。</p>
+<p><strong>weight（加权轮询）</strong> — 本质还是轮询，通过 <code class="notranslate">weight</code> 参数给性能更强的机器分配更高权重。</p>
+<p><strong>ip_hash</strong> — 按客户端 IP 做哈希，同一个 IP 固定落到同一台后端，常用于简单的会话保持（session 粘性）。</p>
+<p><strong>least_conn（最少连接）</strong> — 把请求发给当前活跃连接数最少的后端，适合请求处理时长差异较大的场景。</p>
+<p><strong>hash</strong> — 基于自定义 key（如 <code class="notranslate">$request_uri</code>）做哈希。加上 <code class="notranslate">consistent</code> 参数可启用一致性哈希，后端增减时减少缓存失效。</p>
+<p><strong>random</strong> — 随机选择。可加 <code class="notranslate">two least_conn</code>，即随机选两台再取连接数较少的那台（power of two choices）。</p>
+<p><strong>least_time</strong> — 按平均响应时间 + 活跃连接数综合选择最快的后端。</p>
+<p>一个常见的小提醒：<code class="notranslate">ip_hash</code> 和 <code class="notranslate">hash</code> 做会话保持时，如果后端节点数量变化（扩缩容），未用一致性哈希的话会导致大量请求重新分布</p>
+<p>Nginx中location匹配规则</p>
+<p>匹配优先级是 <code class="notranslate">=</code>（精确）&gt; <code class="notranslate">^~</code>（前缀，命中后不再正则）&gt; 正则 <code class="notranslate">~</code>/<code class="notranslate">~*</code>（区分/不区分大小写，按配置顺序）&gt; 普通前缀匹配。</p>
+<p>优先级从高到低：</p>
+<ol>
+<li><code class="notranslate">location = /path</code> —— <strong>精确匹配</strong>，命中立即停止。</li>
+<li><code class="notranslate">location ^~ /path</code> —— <strong>前缀匹配且命中后不再做正则</strong>（带 <code class="notranslate">^~</code> 修饰符）。</li>
+<li><code class="notranslate">location ~ /regex</code> / <code class="notranslate">location ~* /regex</code> —— <strong>正则匹配</strong>（<code class="notranslate">~</code> 区分大小写，<code class="notranslate">~*</code> 不区分），多个正则按<strong>在配置文件中出现的先后顺序</strong>匹配，命中第一个即停止。</li>
+<li><code class="notranslate">location /path</code> —— <strong>普通前缀匹配</strong>，遵循<strong>最长前缀优先</strong>。</li>
+</ol>
+<p>Nginx中rewrite和return</p>
+<p>return（它的性能更好）的应用：</p>
+<pre class="notranslate"><code class="notranslate">server {
+    listen 80;
+    # 全站http强制跳转https（最优写法，优于rewrite）
+    return 301 https://$host$request_uri;
+}
+
+location ~ \.(php|sh|sql)$ {
+    # 拦截危险后缀访问
+    return 403;
+}
+
+location /api {
+    # 直接返回json
+    default_type application/json;
+    return 200 '{"code":0,"msg":"success"}';
+}
+</code></pre>
+<p>rewrite的用法：</p>
+<pre class="notranslate"><code class="notranslate">rewrite 正则匹配URI 替换后的URI [flag];
+</code></pre>
+<p>rewrite的应用：</p>
+<pre class="notranslate"><code class="notranslate">#伪静态（url 美化，内部重写，地址不变）
+location / {
+    rewrite ^/article/(\d+)\.html$ /article.php?id=$1 last;
+}
+
+#rewrite 捕获分组 $1 $2
+# /book/123 → /page?id=123
+rewrite ^/book/(\d+)$ /page?id=$1 last;
+#(\d+)：捕获数字，存入$1
+
+#去掉 url 后缀.html
+rewrite ^/(.*)\.html$ /$1 permanent;
+
+#参数携带
+#原地址/test?name=zhangsan → /api/test?name=zhangsan
+rewrite ^/test$ /api/test?$args last;
+</code></pre>
+<p>last：改完路径 → <strong>跳出当前 location，从头遍历所有 location</strong></p>
+<p>break：改完路径 → <strong>留在当前 location 继续执行 proxy_pass/root 等</strong></p>
+<p>redirect：临时 302 重定向，浏览器地址栏变化</p>
+<p>permanent：永久 301 重定向，浏览器地址栏变化</p>
+<p>return 和 rewrite 对比选型（什么时候用谁）</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th align="center">场景</th>
+<th align="center">推荐指令</th>
+<th align="center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">域名全站跳转 http→https</td>
+<td align="center">return</td>
+<td align="center">无正则，性能好，代码简洁</td>
+</tr>
+<tr>
+<td align="center">固定路径拦截（封禁目录 / 后缀）</td>
+<td align="center">return</td>
+<td align="center">直接返回状态码，快速终止</td>
+</tr>
+<tr>
+<td align="center">接口直接返回自定义 json / 文本</td>
+<td align="center">return</td>
+<td align="center">最简配置</td>
+</tr>
+<tr>
+<td align="center">正则路径伪静态、URL 路径替换</td>
+<td align="center">rewrite</td>
+<td align="center">需要正则捕获路径，必须 rewrite</td>
+</tr>
+<tr>
+<td align="center">复杂多级路径拆分、参数重组</td>
+<td align="center">rewrite</td>
+<td align="center">支持分组捕获 $1/$2</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>Nginx中proxy_pass末尾带/和不带/的区别</p>
+<pre class="notranslate"><code class="notranslate">情况一：proxy_pass 带 URI（末尾有 /）
+location /api/ {
+    proxy_pass http://backend/;
+}
+请求 /api/user → 转发到 http://backend/user （去掉 /api/）
+
+情况二：proxy_pass 不带 URI（末尾无 /）
+location /api/ {
+    proxy_pass http://backend;
+}
+请求 /api/user → 转发到 http://backend/api/user （原样保留）
+</code></pre>
+<p><strong>规律</strong>：proxy_pass 后面如果<strong>带了路径（包括只有一个 <code class="notranslate">/</code>）</strong>，nginx 会把 location 匹配的前缀部分<strong>替换</strong>掉；如果<strong>只有域名/IP 不带路径</strong>，则把完整 URI <strong>原样</strong>拼接到后面。</p>
+<blockquote>
+<p>注意：当 proxy_pass 使用了正则 location 或包含变量时，规则不同，不能带 URI 部分。</p>
+</blockquote>
+<p>Nginx中常用 header 透传：<code class="notranslate">proxy_set_header Host</code>、<code class="notranslate">X-Real-IP</code>、<code class="notranslate">X-Forwarded-For</code> 的作用</p>
+<pre class="notranslate"><code class="notranslate">location / {
+    proxy_pass http://backend;
+    proxy_set_header Host $host;                      # 透传原始 Host
+    proxy_set_header X-Real-IP $remote_addr;          # 客户端真实 IP
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  # 经过的代理链
+    proxy_set_header X-Forwarded-Proto $scheme;       # 原始协议 http/https
+}
+</code></pre>
+<p>Nginx如果想要pass到k8s到工作负载中，且Nginx不在K8S集群内，如何不给工作负载绑定LoadBalance（使用ClusterIP）？</p>
+<p>只需要<strong>一个对外 ELB</strong>,挂在 Ingress Controller 上(它本身就是个 nginx)。后端所有业务 Service 都用 <strong>ClusterIP 类型</strong>(纯内部,不占 ELB)。Ingress 根据<strong>域名 / 路径</strong>把外部流量路由到不同的内部 Service。</p>
+<p>Ingress配置实现内部工作负载互访，proxy_pass 用变量时使用 resolver+CoreDNS。</p>
+<pre class="notranslate"><code class="notranslate">location / {
+    resolver 10.96.0.10 valid=10s;        # K8s 中通常是 kube-dns/CoreDNS 的 ClusterIP
+    set $backend "http://my-svc.default.svc.cluster.local";
+    proxy_pass $backend;
+}
+</code></pre>
+<ul>
+<li>nginx 默认在<strong>启动时</strong>解析 upstream 域名并缓存，之后不再解析，这样可以避免每次请求都走CoreDNS解析。后端 IP 变化（如 K8s Pod 重建、Service Endpoint 变动）时不会感知，导致 502。</li>
+<li>把 <code class="notranslate">proxy_pass</code> 写成<strong>变量</strong>形式并配置 <code class="notranslate">resolver</code>，nginx 就会在请求时按 DNS TTL 动态解析，从而跟上后端变化。</li>
+<li><code class="notranslate">valid</code> 控制 DNS 缓存时间。</li>
+</ul>
+<p>Keepalive长连接</p>
+<p><strong>客户端侧：</strong></p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c1">keepalive_timeout</span> <span class="pl-c1">65</span><span class="pl-c1">;</span>
+<span class="pl-c1">keepalive_requests</span> <span class="pl-c1">1000</span><span class="pl-c1">;</span>   # 单连接最多处理多少请求后关闭</pre></div>
+<p><strong>upstream 侧（很多人会漏配，后果是后端大量 TIME_WAIT）：</strong></p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c1">upstream</span> backend <span class="pl-c1">{</span>
+    <span class="pl-c1">server</span> <span class="pl-c1">10.0.0.1:8080</span><span class="pl-c1">;</span>
+    <span class="pl-c1">keepalive</span> <span class="pl-c1">32</span><span class="pl-c1">;</span>          # 每个 worker 与后端保持的空闲长连接数
+<span class="pl-c1">}</span>
+<span class="pl-c1">location</span> / <span class="pl-c1">{</span>
+    <span class="pl-c1">proxy_pass</span> <span class="pl-c1">http</span>://backend<span class="pl-c1">;</span>
+    <span class="pl-c1">proxy_http_version</span> 1.1<span class="pl-c1">;</span>          # 长连接必须 1.1
+    <span class="pl-c1">proxy_set_header</span> Connection <span class="pl-s">""</span><span class="pl-c1">;</span>  # 清掉 Connection: close
+<span class="pl-c1">}</span></pre></div>
+<h3></h3>
+<p>Nginx中常用调优</p>
+<pre class="notranslate"><code class="notranslate">sendfile on;        # 零拷贝发送静态文件，省去内核态到用户态的数据拷贝，静态文件传输零拷贝，大幅降低 CPU。
+
+tcp_nopush on;      # 配合 sendfile，攒满一个数据包再发（减少小包）
+tcp_nodelay on;     # 长连接上禁用 Nagle 算法，及时发送小数据
+#`tcp_nopush`/`tcp_nodelay` 看似矛盾，实则 nginx 会智能配合——传文件时攒包，传完最后一块时立即发出。
+
+gzip on;            # 压缩文本类响应
+gzip_types text/plain application/json application/javascript text/css;
+gzip_comp_level 5;
+gzip_min_length 1k;
+</code></pre>
+<p>Nginx中静态资源缓存配置</p>
+<pre class="notranslate"><code class="notranslate">open_file_cache max=10000 inactive=60s;   # 缓存文件描述符、大小、修改时间
+open_file_cache_valid 60s;
+open_file_cache_min_uses 2;
+open_file_cache_errors on;
+</code></pre>
+<p>Nginx中TLS握手过程（简述</p>
+<ol>
+<li>Client Hello：客户端发送支持的 TLS 版本、加密套件、随机数。</li>
+<li>Server Hello：服务端选定套件、发送证书、随机数。</li>
+<li>客户端校验证书，生成 pre-master secret，用服务端公钥加密发送。</li>
+<li>双方用两个随机数 + pre-master 生成对称会话密钥。</li>
+<li>之后用对称密钥加密通信。</li>
+</ol>
+<p>TLS 1.3 简化了握手（1-RTT，甚至 0-RTT），更快更安全。</p>
+<p>Nginx中限流实现</p>
+<p><strong>请求速率限流 limit_req（漏桶算法）</strong></p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c"># http 块定义</span>
+<span class="pl-c1">limit_req_zone</span> <span class="pl-v">$binary_remote_addr</span> <span class="pl-c1">zone</span>=req_limit:<span class="pl-c1">10m</span> rate=<span class="pl-c1">10r</span>/s<span class="pl-c1">;</span>
+
+<span class="pl-c1">location</span> /api/ <span class="pl-c1">{</span>
+    <span class="pl-c1">limit_req</span> <span class="pl-c1">zone</span>=req_limit burst=<span class="pl-c1">20</span> nodelay<span class="pl-c1">;</span>
+<span class="pl-c1">}</span></pre></div>
+<ul>
+<li><code class="notranslate">rate=10r/s</code>：平均每秒 10 个请求（漏桶恒定出水）。</li>
+<li><code class="notranslate">burst=20</code>：允许 20 个请求的突发排队缓冲。</li>
+<li><code class="notranslate">nodelay</code>：突发请求立即处理（不强制按速率延迟），但仍占用 burst 名额；不加 nodelay 则超出 rate 的请求会被排队延迟发出。</li>
+<li>超过限制返回 503（可用 <code class="notranslate">limit_req_status</code> 改）。</li>
+</ul>
+<p><strong>并发连接限流 limit_conn</strong></p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c1">limit_conn_zone</span> <span class="pl-v">$binary_remote_addr</span> <span class="pl-c1">zone</span>=conn_limit:<span class="pl-c1">10m</span><span class="pl-c1">;</span>
+
+<span class="pl-c1">location</span> /download/ <span class="pl-c1">{</span>
+    <span class="pl-c1">limit_conn</span> conn_limit 5<span class="pl-c1">;</span>   # 单 IP 最多 5 个并发连接
+<span class="pl-c1">}</span></pre></div>
+<p>Nginx中安全配置</p>
+<p><strong>访问控制与防盗链</strong></p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c"># IP 黑白名单</span>
+<span class="pl-c1">location</span> /admin/ <span class="pl-c1">{</span>
+    <span class="pl-c1">allow</span> <span class="pl-c1">192.168.1.0</span>/<span class="pl-c1">24</span><span class="pl-c1">;</span>
+    <span class="pl-c1">deny</span> all<span class="pl-c1">;</span>
+<span class="pl-c1">}</span>
+
+<span class="pl-c"># 防盗链</span>
+<span class="pl-c1">location</span> <span class="pl-sr">~</span>* <span class="pl-sr">\.(jpg|png|gif)$ </span><span class="pl-c1">{</span>
+    <span class="pl-c1">valid_referers</span> none blocked example.com *.example.com<span class="pl-c1">;</span>
+    <span class="pl-k">if</span> <span class="pl-c1">(</span><span class="pl-v">$invalid_referer</span><span class="pl-c1">)</span> <span class="pl-c1">{</span> <span class="pl-k">return</span> <span class="pl-c1">403</span><span class="pl-c1">;</span> <span class="pl-c1">}</span>
+<span class="pl-c1">}</span></pre></div>
+<p><strong>基础安全加固</strong></p>
+<ul>
+<li>隐藏版本号：<code class="notranslate">server_tokens off;</code></li>
+<li>限制请求体大小：<code class="notranslate">client_max_body_size 10m;</code>（防大包攻击 / 控制上传）</li>
+<li>超时设置防慢连接攻击：<code class="notranslate">client_body_timeout</code>、<code class="notranslate">client_header_timeout</code>。</li>
+<li>配合 WAF（如 ModSecurity）做应用层防护。</li>
+</ul>
+<p>使用keepalived做Nginx高可用</p>
+<ul>
+<li>两台 nginx，keepalived 基于 <strong>VRRP</strong> 协议维护一个 <strong>VIP（虚拟 IP）</strong>。</li>
+<li>正常时 VIP 在主节点；主节点宕机或 nginx 挂掉（通过脚本检测），VIP 漂移到备节点，对外 IP 不变，实现故障自动切换。</li>
+<li>可做主主模式（两个 VIP 互为主备）提升资源利用率。</li>
+</ul>
+<p>Nginx配置健康检查</p>
+<ul>
+<li>
+<p><strong>被动健康检查（开源版自带）</strong>：</p>
+<div class="highlight highlight-source-nginx"><pre class="notranslate"><span class="pl-c1">upstream</span> backend <span class="pl-c1">{</span>
+    <span class="pl-c1">server</span> <span class="pl-c1">10.0.0.1</span> max_fails=3 fail_timeout=<span class="pl-c1">30s</span><span class="pl-c1">;</span>
+<span class="pl-c1">}</span></pre></div>
+<p>在 <code class="notranslate">fail_timeout</code> 时间内失败达到 <code class="notranslate">max_fails</code> 次，则该节点被标记为不可用，暂停 <code class="notranslate">fail_timeout</code> 后再试。缺点：只有真实请求失败才发现，有延迟。</p>
+</li>
+<li>
+<p><strong>主动健康检查</strong>：开源版需第三方模块 <code class="notranslate">nginx_upstream_check_module</code>，或用 NGINX Plus 的 <code class="notranslate">health_check</code> 指令，主动定时探测后端。</p>
+</li>
+</ul>
+<p>平滑升级Nginx本身，实现业务不中断</p>
+<p><strong>二进制热升级</strong>：发 <code class="notranslate">USR2</code> 信号启动新版本 master 和 worker（与旧的并存），验证无误后发 <code class="notranslate">QUIT</code> 让旧进程优雅退出，实现不停机升级 nginx 本身。</p>
+<p>Nginx常见状态码</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>状态码</th>
+<th>含义</th>
+<th>常见原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>499</strong></td>
+<td>客户端主动断开连接</td>
+<td>客户端超时/用户取消，常因后端响应太慢</td>
+</tr>
+<tr>
+<td><strong>502 Bad Gateway</strong></td>
+<td>网关收到无效响应</td>
+<td>后端进程挂了、连接被拒、后端返回非法响应</td>
+</tr>
+<tr>
+<td><strong>504 Gateway Timeout</strong></td>
+<td>网关超时</td>
+<td>后端处理太慢，超过 <code class="notranslate">proxy_read_timeout</code> 等</td>
+</tr>
+<tr>
+<td><strong>413</strong></td>
+<td>请求体过大</td>
+<td>超过 <code class="notranslate">client_max_body_size</code></td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

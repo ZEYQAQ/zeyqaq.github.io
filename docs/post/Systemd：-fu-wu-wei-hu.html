@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="systemd将一切系统资源（服务、挂载点、设备、定时器）视为 Unit。">
+<meta property="og:title" content="Systemd：服务维护">
+<meta property="og:description" content="systemd将一切系统资源（服务、挂载点、设备、定时器）视为 Unit。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/Systemd%EF%BC%9A-fu-wu-wei-hu.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>Systemd：服务维护</title>
+
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">Systemd：服务维护</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/89" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>systemd将一切系统资源（服务、挂载点、设备、定时器）视为 Unit。比如最常用的**<code class="notranslate">.service</code><strong>: 是后台运行的程序，</strong><code class="notranslate">.timer</code><strong>: 定时任务，替代传统的 cron。</strong><code class="notranslate">.mount</code><strong>: 文件系统挂载。</strong><code class="notranslate">.target</code>**: 一组单元的集合（类似于运行级别，如 <code class="notranslate">multi-user.target</code> 表示多用户命令行环境）。</p>
+<p>管理这些Unit需要用systemctl，日常最常用的是</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>操作</th>
+<th>命令</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>启动服务</td>
+<td>systemctl start </td>
+<td>立即启动</td>
+</tr>
+<tr>
+<td>停止服务</td>
+<td>systemctl stop </td>
+<td>立即停止</td>
+</tr>
+<tr>
+<td>重启服务</td>
+<td>systemctl restart </td>
+<td>重启服务进程</td>
+</tr>
+<tr>
+<td>重载systemd本身配置</td>
+<td>systemctl daemon-reload</td>
+<td>当你修改、添加或删除了 .service 单元文件内容时。不重启，平滑加载配置。</td>
+</tr>
+<tr>
+<td>重载应用程序配置</td>
+<td>systemctl reload </td>
+<td>当你修改了应用程序本身的配置文件（如 .conf 或 .yaml）时。不重启进程，重新加载配置文件</td>
+</tr>
+<tr>
+<td>开机自启</td>
+<td>systemctl enable </td>
+<td>创建软链接，开机启动</td>
+</tr>
+<tr>
+<td>禁止开机启动</td>
+<td>systemctl disable </td>
+<td>取消开机启动</td>
+</tr>
+<tr>
+<td>查看状态</td>
+<td>systemctl status </td>
+<td>查看运行状态、最后几行日志</td>
+</tr>
+<tr>
+<td>列出服务</td>
+<td>systemctl list-units --type=service</td>
+<td>查看系统中当前所有的服务单元</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>排查问题需要用到journalctl，日常用到的是</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>功能类别</th>
+<th>命令</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>查询所有日志</td>
+<td>journalctl</td>
+<td>查看系统收集的所有日志记录</td>
+</tr>
+<tr>
+<td>查询特定服务日志</td>
+<td>journalctl -u </td>
+<td>仅筛选显示指定服务的相关日志</td>
+</tr>
+<tr>
+<td>实时追踪日志</td>
+<td>journalctl -u  -f</td>
+<td>实时滚动查看服务最新输出（类似 tail -f）</td>
+</tr>
+<tr>
+<td>查询最近 X 条日志</td>
+<td>journalctl -n &lt;数量&gt;</td>
+<td>查看指定服务最近的 N 条日志记录（如 -n 50）</td>
+</tr>
+<tr>
+<td>查询最近 1小时日志</td>
+<td>journalctl -u  --since "1 hour ago"</td>
+<td>查看过去一小时内的日志记录</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>.service文件是systemd的维护目标，放在 <code class="notranslate">/etc/systemd/system/</code> 目录下。</p>
+<p>文件内容一般为：</p>
+<pre class="notranslate"><code class="notranslate">[Unit]
+Description=My Custom Application
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/my-app
+ExecStart=/usr/bin/python3 /opt/my-app/main.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<p>编写完成后必须执行的步骤：重新加载配置： <code class="notranslate">systemctl daemon-reload</code>并且启动并设置自启： <code class="notranslate">systemctl enable --now my-app.service</code></p>
+<p>其中，<code class="notranslate">[Unit]</code> 段落的核心作用是描述该服务是什么，以及它与其他服务之间的依赖和启动顺序关系。</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Description</td>
+<td>对服务的简短描述，用 systemctl status 时会显示。</td>
+<td>Description=Prometheus Blackbox Exporter</td>
+</tr>
+<tr>
+<td>Documentation</td>
+<td>指向文档的链接或手册页。</td>
+<td>Documentation=<a href="https://prometheus.io/docs/" rel="nofollow">https://prometheus.io/docs/</a></td>
+</tr>
+<tr>
+<td>After</td>
+<td>核心参数：定义启动顺序。该服务会在列表中的项启动之后才启动。</td>
+<td>After=network.target</td>
+</tr>
+<tr>
+<td>Before</td>
+<td>定义启动顺序：该服务会在列表中的项启动之前启动。</td>
+<td>Before=multi-user.target</td>
+</tr>
+<tr>
+<td>Requires</td>
+<td>强依赖：若列出的单元启动失败，本服务也会启动失败。</td>
+<td>Requires=network-online.target</td>
+</tr>
+<tr>
+<td>Wants</td>
+<td>弱依赖：若列出的单元未启动，不影响本服务启动，仅尝试启动它们。</td>
+<td>Wants=syslog.target</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>其中，<code class="notranslate">.target</code> 理解为“系统的运行状态点”<strong>或</strong>“逻辑分组”。在传统的 SysVinit 系统中，这对应于“运行级别（Runlevel）”。<code class="notranslate">systemd</code> 将这些级别细化为了 <code class="notranslate">.target</code>。 <code class="notranslate">target</code> 文件本身就是一个特殊的 Unit 文件，它的作用是<strong>将一组相关的服务“打包”在一起</strong>。当系统启动时，它不会一个一个去启动成百上千个服务，而是通过“启动某个 <code class="notranslate">target</code>”来批量拉起该状态下必须的服务。</p>
+<p>常见的target：</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>目标 (Target)</th>
+<th>核心状态描述</th>
+<th>典型应用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>network.target</td>
+<td>网络协议栈已就绪（网卡驱动加载）。</td>
+<td>绝大多数基础网络服务的起点。</td>
+</tr>
+<tr>
+<td>network-online.target</td>
+<td>网络已连接并成功获取 IP 地址。</td>
+<td>需要联网才能工作的程序（如 NTP、云同步、数据库连接）。</td>
+</tr>
+<tr>
+<td>multi-user.target</td>
+<td>多用户命令行环境，系统准备就绪。</td>
+<td>绝大多数后台服务（守护进程）的默认启动目标。</td>
+</tr>
+<tr>
+<td>graphical.target</td>
+<td>包含图形界面（GUI）的环境。</td>
+<td>桌面操作系统（如 Ubuntu Desktop）的最终启动目标。</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>其中，<code class="notranslate">[Service]</code> 段：定义“如何运行”。这是服务配置的核心，决定了程序的启动命令、运行身份和重启策略。</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Type</td>
+<td>定义进程启动类型（simple 最常用，表示主进程就是 ExecStart）。</td>
+<td>Type=simple</td>
+</tr>
+<tr>
+<td>ExecStart</td>
+<td>最关键：启动程序的完整路径及参数。</td>
+<td>ExecStart=/usr/bin/python3 /opt/app.py</td>
+</tr>
+<tr>
+<td>WorkingDirectory</td>
+<td>指定程序运行的工作目录。</td>
+<td>WorkingDirectory=/opt/app</td>
+</tr>
+<tr>
+<td>User / Group</td>
+<td>以哪个用户/用户组的身份运行（安全建议：尽量不用 root）。</td>
+<td>User=webuser</td>
+</tr>
+<tr>
+<td>Restart</td>
+<td>重启策略（on-failure 表示只有崩溃时才重启）。</td>
+<td>Restart=on-failure</td>
+</tr>
+<tr>
+<td>RestartSec</td>
+<td>重启前的等待时间。</td>
+<td>RestartSec=5s</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td>设置环境变量（如 API 密钥、端口）。</td>
+<td>Environment="PORT=8080"</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>其中，<code class="notranslate">[Install]</code> 段：定义“安装行为”。这一段配置决定了当你执行 <code class="notranslate">systemctl enable</code> 时，systemd 会做些什么（即建立哪些软链接）。</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WantedBy</td>
+<td>指定该服务归属哪个 Target。通常填 multi-user.target。</td>
+<td>WantedBy=multi-user.target</td>
+</tr>
+<tr>
+<td>RequiredBy</td>
+<td>与 WantedBy 类似，但表示强依赖关系（较少用）。</td>
+<td>RequiredBy=network.target</td>
+</tr>
+<tr>
+<td>Alias</td>
+<td>设置服务的别名，方便通过不同名字启动。</td>
+<td>Alias=my-service.service</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<hr>
+<p>深度功能：</p>
+<p>1、资源控制</p>
+<p><code class="notranslate">systemd</code> 集成了 <code class="notranslate">cgroups</code>，这意味着可以直接在 <code class="notranslate">.service</code> 文件中限制程序的资源使用，防止某个进程“吃光”系统资源。</p>
+<p><strong>限制 CPU 使用率：</strong> <code class="notranslate">CPUQuota=50%</code> (限制该服务最多使用 50% 的单核 CPU)。</p>
+<p><strong>限制内存占用：</strong> <code class="notranslate">MemoryMax=512M</code> (达到此限额时，内核可能会杀掉进程或使其分配受阻)。</p>
+<p><strong>限制最大进程数：</strong> <code class="notranslate">TasksMax=10</code> (防止 fork 炸弹)。</p>
+<p>2、自动化重启策略</p>
+<p>除了简单的 <code class="notranslate">Restart=always</code>，还可以配置更细致的恢复逻辑：</p>
+<p><strong><code class="notranslate">StartLimitIntervalSec=0</code></strong>：默认情况下，如果服务在 10 秒内重启超过 5 次，systemd 会放弃重启。</p>
+<p><strong><code class="notranslate">Restart=on-failure</code> vs <code class="notranslate">Restart=always</code></strong>：<code class="notranslate">on-failure</code> 只有在非正常退出（状态码非 0）时重启；<code class="notranslate">always</code> 只要进程退出就重启（即使是通过 <code class="notranslate">systemctl stop</code> 停止的，也会被自动拉起）。</p>
+<p>3、环境变量与配置文件分离</p>
+<pre class="notranslate"><code class="notranslate">[Service]
+# 在 /etc/default/my-app 中以 KEY=VALUE 格式定义变量，把敏感信息存进去，避免密码明文暴露在service
+EnvironmentFile=/etc/default/my-app
+ExecStart=/usr/bin/my-app --api-key=$API_KEY
+</code></pre>
+<p>4、类似于corntab的定时任务</p>
+<p>一个 <code class="notranslate">.timer</code> 文件对应一个 <code class="notranslate">.service</code> 文件。可以设置 <code class="notranslate">OnBootSec=15min</code>（开机后 15 分钟执行），或者 <code class="notranslate">OnUnitActiveSec=1h</code>（上次运行结束后 1 小时再次执行，比 cron 的固定时间更灵活）。</p>
+<p>5、服务类型进阶</p>
+<p><code class="notranslate">Type=simple</code>：标准</p>
+<p><strong><code class="notranslate">Type=forking</code></strong>：适用于后台守护进程（Daemon），程序启动后会自己 fork 出子进程然后父进程退出。</p>
+<p><strong><code class="notranslate">Type=notify</code></strong>：适用于与 systemd 有深度交互的程序，程序启动完成后会主动通知 systemd“我已经准备好了”。</p>
+<p>6、排查问题</p>
+<p>查看服务启动耗时排行： <code class="notranslate">systemd-analyze blame</code></p>
+<p>以图形化方式查看启动链： <code class="notranslate">systemd-analyze dot | dot -Tsvg &gt; system.svg</code></p>
+<p>实时监控服务的资源消耗： <code class="notranslate">systemd-cgtop</code>（界面类似 <code class="notranslate">top</code> 命令，但按 cgroups 分组）。</p>
+<p>查看当前所有挂载点及其依赖： <code class="notranslate">systemctl list-units --type=mount</code></p></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>

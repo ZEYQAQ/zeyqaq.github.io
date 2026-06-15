@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="1、
+
+Q：
+
+如果此时你发送一个命令“运行一个 Web 应用”，这个指令进入工厂后，你认为这三个组件分别应该先做什么，后做什么呢？
+
+A：
+
+首先是apiserver收到了kubectl apply的请求，将此次数据分析为具体指令并将记录存入etcd；scheduler和controllermanager会不断查询etcd，一旦查询到数据，scheduler会检查哪些node存在资源以供调度，然后kubelet会将其镜像拉取后按照yaml启动，controllermanager会不断检查pod状态，从pending直到running
+
+2、
+
+Q：
+
+你了解 Deployment 和 ReplicaSet 的区别吗？在实际生产中，为什么我们几乎总是直接使用 Deployment，而不是手动去创建 ReplicaSet？
+
+A：
+
+deployment因为有滚动部署，在更新时可以理解为多个replicaset。">
+<meta property="og:title" content="K8S面试Q&A">
+<meta property="og:description" content="1、
+
+Q：
+
+如果此时你发送一个命令“运行一个 Web 应用”，这个指令进入工厂后，你认为这三个组件分别应该先做什么，后做什么呢？
+
+A：
+
+首先是apiserver收到了kubectl apply的请求，将此次数据分析为具体指令并将记录存入etcd；scheduler和controllermanager会不断查询etcd，一旦查询到数据，scheduler会检查哪些node存在资源以供调度，然后kubelet会将其镜像拉取后按照yaml启动，controllermanager会不断检查pod状态，从pending直到running
+
+2、
+
+Q：
+
+你了解 Deployment 和 ReplicaSet 的区别吗？在实际生产中，为什么我们几乎总是直接使用 Deployment，而不是手动去创建 ReplicaSet？
+
+A：
+
+deployment因为有滚动部署，在更新时可以理解为多个replicaset。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/K8S-mian-shi-Q%26A.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>K8S面试Q&A</title>
+
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">K8S面试Q&A</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/90" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>1、</p>
+<p>Q：</p>
+<p>如果此时你发送一个命令“运行一个 Web 应用”，这个指令进入工厂后，你认为这三个组件分别应该先做什么，后做什么呢？</p>
+<p>A：</p>
+<p>首先是apiserver收到了kubectl apply的请求，将此次数据分析为具体指令并将记录存入etcd；scheduler和controllermanager会不断查询etcd，一旦查询到数据，scheduler会检查哪些node存在资源以供调度，然后kubelet会将其镜像拉取后按照yaml启动，controllermanager会不断检查pod状态，从pending直到running</p>
+<p>2、</p>
+<p>Q：</p>
+<p>你了解 Deployment 和 ReplicaSet 的区别吗？在实际生产中，为什么我们几乎总是直接使用 Deployment，而不是手动去创建 ReplicaSet？</p>
+<p>A：</p>
+<p>deployment因为有滚动部署，在更新时可以理解为多个replicaset。而replicaset只是简单的维护统一版本镜像的副本数量，缺少则补充。</p>
+<p>3、</p>
+<p>Q：</p>
+<p>在执行滚动更新时，如果新版本的镜像有问题（比如镜像拉取失败或程序启动后一直报错），Deployment 是如何处理的？集群会一直处于一个“半更新”的状态吗？</p>
+<p>A：</p>
+<p>在所有更新中，deployment都会新启一个replicaset，保留原有Pod。deployment首先会经历pending状态，kubelet会尝试从scheduler维护的etcd数据中判断哪个node存在资源，然后尝试调度镜像到node。镜像拉取如果存在问题会报错ImagePullBackOff，此时controlermanager会检测到ImagePullBackOff状态，然后显示出来。如果是程序启动有问题则报错CrashLoopBackOff，Kubelet 发现进程挂了，就会根据 RestartPolicy（默认是 Always）尝试重启。但是k8s集群为了避免无限循环造成的资源浪费，一般会在600秒（progressDeadlineSeconds）后标记为Failed。集群会一直处于更新失败再更新的循环，直到问题解决后清除原有的pod。</p>
+<p>4、</p>
+<p>Q：</p>
+<p>如果我们正在执行滚动更新，为了防止新版本发布导致大面积故障，我们通常会配置 <code class="notranslate">maxUnavailable</code> 和 <code class="notranslate">maxSurge</code> 这两个参数。你知道这两个参数分别代表什么意义，以及如果把 <code class="notranslate">maxSurge</code> 设置为 0 会发生什么吗？</p>
+<p>A：</p>
+<p>maxUnavailable (最大不可用副本数)定义在滚动更新过程中，同一时刻允许有多少个 Pod 处于不可用状态。它可以是具体数字，也可以是百分比（例如 25%）。maxSurge(最大激增副本数)定义在滚动更新过程中，除了预期的副本数之外，还可以额外创建多少个新 Pod。如果我们将 maxSurge 设置为 0，当滚动更新的时候，则会先删除已有的一个pod，然后补充一个新版本的pod。一般在资源极度受限的情况下使用，但是这样会让稳定性大打折扣。</p>
+<p>5、</p>
+<p>Q：</p>
+<p>你知道 K8s 中的 Liveness Probe 和 Readiness Probe 的区别吗？如果一个容器的 <code class="notranslate">Liveness Probe</code> 频繁报错，K8s 会采取什么动作？</p>
+<p>A；</p>
+<p>Liveness Probe存活探针，会通过检查URL到状态码或者通过执行指定脚本来确定pod内应用是否存活。readiness是就绪探针，和存活探针类似，也是检查状态码，不过这个探针的用途是来确认新容器是否已经可以接受请求。如果三次（一般）存活探针都没有通过，超时10s（一般）就会杀死容器，在原有pod内新启容器。</p>
+<p>6、</p>
+<p>Q：</p>
+<p>假设你有一个业务系统，在启动时需要加载大量的缓存数据，耗时可能长达 2 分钟。如果直接配置 <code class="notranslate">Liveness Probe</code>，很容易在启动期间就因为超时而导致容器被反复重启。你会如何利用 <code class="notranslate">initialDelaySeconds</code> 或者其他方案来解决这个问题，以保证 Pod 能正常启动并对外提供服务？</p>
+<p>A：</p>
+<p>存活探针（livenessProbe）和就绪探针（readinessProbe）都在容器启动后，各自等待自己的 <code class="notranslate">initialDelaySeconds</code> 结束后开始检查，互不干扰。initialDelaySeconds是各种探针的一个参数，代表在容器启动到第一次检测的等待的时间间隔。</p>
+<p>7、</p>
+<p>Q：</p>
+<p>你了解 Kubernetes 的 Service 吗？为什么有了 Pod IP，我们还需要 Service？如果 Pod 被删除重建导致 IP 变了，Service 是如何保证流量依然能准确转发到新 Pod 的？</p>
+<p>A：</p>
+<p>pod重建后ip会变化，svc会建立一个虚拟ip（Virtual IP），SVC会维护这个虚拟ip对应的后面的podip。访问 Service 的 IP 时，请求会被转发到后端某一个正在运行的 Pod 的 IP 上。</p>
+<p>其中CoreDNS负责解析SVC的名字为虚拟IP、网络插件（CNI）负责Pod 的实际 IP 分配和网桥搭建。</p>
+<p>8、</p>
+<p>Q：在 Kubernetes 中，有一个名为 Endpoints（或者对于较新版本是 EndpointSlice）的资源对象。你认为当 Controller Manager 检测到旧 Pod 被销毁、新 Pod 启动并就绪时，它会通过什么方式去更新这个 Endpoints 对象，从而让 Service 能准确感知到新 Pod 的存在呢？</p>
+<p>A：</p>
+<p>Endpoint Controller（是Controller Manager的一部份）会时刻盯着API Server（使用 List-Watch 机制）</p>
+<p>（为什么不是读etcd？因为<strong>etcd (存储层)</strong> &lt;---&gt; <strong>API Server (逻辑层/权限/缓存)</strong> &lt;---&gt; <strong>各个控制器 (如 Endpoint Controller)</strong>，etcd的权限比较高，不是谁都能读写，根据RBAC权限控制，需要通过API Server查完后提供给Controller）</p>
+<p>查看是不是有新的deployment，如有，则Controller去匹配带这个SVC标签的所有的Ready的Pod。加入到Endpoint对象中。而每个node上的kube-proxy会实时监控这个endpoint对象，一旦列表更新，就会更新iptables或者IPVS，确保新流量到新的Pod。</p>
+<p>9、</p>
+<p>Q：</p>
+<p>ControllerManager有什么组件？</p>
+<p>A：有数十个，举例</p>
+<p><strong>Node Controller</strong>：监控节点健康状态。</p>
+<p><strong>ReplicaSet Controller</strong>：确保副本数量达标。</p>
+<p><strong>Deployment Controller</strong>：处理滚动更新和版本回滚。</p>
+<p><strong>Endpoint Controller</strong>：专门负责监控 Service 和 Pod 的映射关系。</p>
+<p><strong>ServiceAccount Controller</strong>：负责自动创建默认的服务账号等。</p>
+<p>10、</p>
+<p>Q：iptables和IPVS的区别？</p>
+<p>A：</p>
+<p>iptables是线性的，每个流量进来都要从头到尾根据规则链一条一条匹配，时间负责度为O(n)，而IPVS是根据哈希表，利用Linux内核专门用于负载均衡的模块来存储转发规则，时间复杂度接近O(1)。</p>
+<p>11、</p>
+<p>Q：你刚才提到通过 <code class="notranslate">kubectl</code> 操作资源，如果某天 API Server 挂了，你觉得已经在运行的 Pod 会受到影响吗？ 或者说，如果你此时手动删掉一个节点上的 kube-proxy，会有什么后果？</p>
+<p>A；</p>
+<p>短时间没什么影响？</p>
+<p>API Server负责新增删去扩容更新配置，除此之外的node层面上的业务一切正常。</p>
+<p>因为kubeproxy只是负责根据endpoint配置Linux转发规则，并不实际操作流量的转发，真正负责转发的是iptables、IPVS。kubeproxy负责转发规则的改写，这也代表，不能再新增、删除任何Pod，因为新的Pod IP的已经无法维护到SVC。</p>
+<p>12、</p>
+<p>Q：</p>
+<p>我们一直在说 API Server 存储数据。如果我要查看一个 Pod 的详细信息，发现它的 <code class="notranslate">Status</code> 部分显示 <code class="notranslate">ContainerCreating</code>，这通常意味着什么组件在此时最忙碌？或者说，这个状态是因为哪个环节卡住了？ （提示：想想是谁负责从镜像仓库拉取镜像并启动容器的？）</p>
+<p>A：</p>
+<p>kubelet从镜像仓库拉取镜像，调用Runtime创建容器，调用CNI分配Pod IP并配置网络，挂在PV、CM、Secret。kubelet在轮询查看Pod状态（为什么不是controllermanager？因为一旦它把这个新 Pod 创建出来并分配给一个节点（Binding），它的核心工作就完成了。 它并不直接管这个 Pod 里的容器镜像有没有拉下来，也不管容器有没有启动。直到最后，Controller Manager 再次“轮询”API Server，看到新的工作负载状态变了，它就确信目标已达成，从而停止干预。--------------Controller Manager (如 ReplicaSet Controller) 负责的是集群层面的‘最终一致性’，确保逻辑上的副本数符合预期；而 Kubelet 负责的是节点层面的‘运行时一致性’，处理具体容器的拉取、启动和健康状态。Controller Manager 并不直接管理容器的启动细节，它通过 API Server 接收 Kubelet 上报的状态，从而实现全链路的闭环。”）</p>
+<p>13、<br>
+Q：</p>
+<p>污点与容忍、亲和与反亲和</p>
+<p>A：</p>
+<p>Taint（污点）：给节点打上标记，表示“我不欢迎某些 Pod”。</p>
+<p><em>例子</em>：<code class="notranslate">key=dedicated, value=special, effect=NoSchedule</code> (拒绝没有特殊容忍度的 Pod 进入)。</p>
+<p>Toleration（容忍）：给 Pod 打上标记，表示“虽然这个节点有污点，但我可以忍受，请让我进去”。</p>
+<p>Node Affinity（节点亲和性）：比如“我想去有 <code class="notranslate">disktype=ssd</code> 标签的机器”。</p>
+<p>Pod Affinity（Pod 亲和性/反亲和性）：这是个高级玩法，比如：</p>
+<ul>
+<li><em>亲和性</em>：要求这两个 Pod 必须部署在同一台机器上（为了低延迟）。</li>
+<li><em>反亲和性</em>（podAntiAffinity）：要求这两个 Pod 绝对不要部署在同一台机器上（为了高可用，防止一台机器坏了导致整个服务挂掉）。</li>
+</ul>
+<p>14、</p>
+<p>Q：</p>
+<p>如果业务必须要在 2 个节点上部署 3 个副本怎么办？这三个副本还不能在同一台node上。</p>
+<p>A：</p>
+<p>将 <code class="notranslate">requiredDuringSchedulingIgnoredDuringExecution</code> 改为 <code class="notranslate">preferredDuringSchedulingIgnoredDuringExecution</code>（软约束）。</p>
+<p>调度器会“尽量”满足反亲和性，但如果实在没地方放了，它会退而求其次，将第三个副本挤在已有的节点上，而不是让 Pod 一直 Pending。</p>
+<p>//拓扑感知（Topology Spread Constraints）：比亲和更加优秀，可以实现这种。允许定义“分布偏差（maxSkew）”允许一定程度的不均匀，但尽量保持平衡。</p>
+<p>15、</p>
+<p>Q：</p>
+<p>如何确认一个新服务的Requests和Limits？</p>
+<p>A：</p>
+<p>i）建设监控系统，将数据采集到Prometheus，<code class="notranslate">container_memory_working_set_bytes</code>（内存工作集）和 <code class="notranslate">container_cpu_usage_seconds_total</code>（CPU 平均使用率）查看所需内容，观察一个业务周期。</p>
+<p>ii）使用VPA，Vertical Pod Autoscaler垂直扩缩容，VPA 可以设置为 <code class="notranslate">Recommender</code> 模式，它不直接调整资源，而是通过分析历史数据，告诉你：“你设置了 1GB 内存，但实际运行中只需要 400MB”。</p>
+<p>iii）压力测试</p>
+<p>在生产环境中，最完美的资源配置策略是 “Requests = Limits”</p></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+
+
+</script>
+
+
+</html>

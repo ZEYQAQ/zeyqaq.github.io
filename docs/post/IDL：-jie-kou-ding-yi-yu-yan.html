@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html data-color-mode="light" data-dark-theme="dark" data-light-theme="light" lang="zh-CN">
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link href='https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/Primer/21.0.7/primer.css' rel='stylesheet' />
+    
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/150204237?v=4"><script>
+        let theme = localStorage.getItem("meek_theme") || "light";
+        document.documentElement.setAttribute("data-color-mode", theme);
+    </script>
+<meta name="description" content="为了解决多种语言之间相互调用接口的问题，IDL应运而生。">
+<meta property="og:title" content="IDL：接口定义语言">
+<meta property="og:description" content="为了解决多种语言之间相互调用接口的问题，IDL应运而生。">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://zeyqaq.github.io/post/IDL%EF%BC%9A-jie-kou-ding-yi-yu-yan.html">
+<meta property="og:image" content="https://avatars.githubusercontent.com/u/150204237?v=4">
+<title>IDL：接口定义语言</title>
+
+
+
+</head>
+<style>
+body{box-sizing: border-box;min-width: 200px;max-width: 900px;margin: 20px auto;padding: 45px;font-size: 16px;font-family: sans-serif;line-height: 1.25;}
+#header{display:flex;padding-bottom:8px;border-bottom: 1px solid var(--borderColor-muted, var(--color-border-muted));margin-bottom: 16px;}
+#footer {margin-top:64px; text-align: center;font-size: small;}
+
+</style>
+
+<style>
+.postTitle{margin: auto 0;font-size:40px;font-weight:bold;}
+.title-right{display:flex;margin:auto 0 0 auto;}
+.title-right .circle{padding: 14px 16px;margin-right:8px;}
+#postBody{border-bottom: 1px solid var(--color-border-default);padding-bottom:36px;}
+#postBody hr{height:2px;}
+#cmButton{height:48px;margin-top:48px;}
+#comments{margin-top:64px;}
+.g-emoji{font-size:24px;}
+@media (max-width: 600px) {
+    body {padding: 8px;}
+    .postTitle{font-size:24px;}
+}
+.copy-feedback {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    color: var(--color-fg-on-emphasis);
+    background-color: var(--color-fg-muted);
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+</style>
+
+
+
+
+<body>
+    <div id="header">
+<h1 class="postTitle">IDL：接口定义语言</h1>
+<div class="title-right">
+    <a href="https://zeyqaq.github.io" id="buttonHome" class="btn btn-invisible circle" title="首页">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathHome" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+    <a href="https://github.com/ZEYQAQ/zeyqaq.github.io/issues/101" target="_blank" class="btn btn-invisible circle" title="Issue">
+        <svg class="octicon" width="16" height="16">
+            <path id="pathIssue" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+    
+
+    <a class="btn btn-invisible circle" onclick="modeSwitch();" title="切换主题">
+        <svg class="octicon" width="16" height="16" >
+            <path id="themeSwitch" fill-rule="evenodd"></path>
+        </svg>
+    </a>
+
+</div>
+</div>
+    <div id="content">
+<div class="markdown-body" id="postBody"><p>为了解决多种语言之间相互调用接口的问题，IDL应运而生。在分布式系统、微服务或者是跨语言/跨进程通信中，不同的模块可能用了不同的技术栈（如Go、Java等）。IDL就类似于一份技术契约（Contact），它不包含实际的业务代码，仅只是定义有哪些字段类型编号以及提供了哪些接口方法。</p>
+<p>IDL都定义了哪些内容？可以拿一份标准的示例（以Protobuf为例）来看：</p>
+<pre class="notranslate"><code class="notranslate">syntax = "proto3"; //声明当前 .proto 文件使用的是 Protocol Buffers v3 版本语法。
+
+package order.service.v1; //定义 Protobuf 内部的逻辑包名（命名空间），这里表示当前文件属于 order（订单域）下的 service 服务，版本为 v1。
+
+option go_package = "example.com/order/service/v1;orderv1";//专门针对 Go 语言的代码生成配置，指定生成的 Go 代码应该放在哪个 Go 模块路径下，以及对应的 Go Package 名称。
+option java_multiple_files = true;//每个 message、enum、service 都会被拆分生成为独立的 .java 源文件（例如单独生成 OrderInfo.java、BaseResp.java、OrderServiceGrpc.java 等），结构更清晰、便于维护与引用。
+option java_package = "com.example.order.service.v1";//专门针对 Java 语言的代码生成配置，指定生成的 Java 类文件所在的 package。
+
+// 1. 业务错误码定义（枚举）
+enum ErrorCode {
+  SUCCESS = 0;                  // 成功
+  INVALID_ARGUMENT = 10001;     // 参数校验失败
+  ORDER_NOT_FOUND = 20001;      // 订单不存在
+  ORDER_ALREADY_PAID = 20002;   // 订单已支付，无法重复操作
+  INSUFFICIENT_STOCK = 30001;   // 库存不足
+  INTERNAL_SERVER_ERROR = 50001;// 服务端内部异常
+}
+
+// 2. 订单状态枚举
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  PENDING_PAYMENT = 1;
+  PAID = 2;
+  SHIPPED = 3;
+  CANCELLED = 4;
+}
+
+// 3. 通用响应结构（BaseResp，承载错误码与错误信息）
+message BaseResp {
+  ErrorCode code = 1;          // 业务错误码
+  string message = 2;          // 错误或提示信息
+  map&lt;string, string&gt; extra = 3;// 链路追踪 trace_id 或诊断透传信息
+}
+
+// 4. 复杂业务数据结构
+message OrderItem {
+  int64 sku_id = 1;
+  int32 quantity = 2;
+  int64 unit_price_cents = 3;  // 单价（分）
+  string sku_name = 4;
+}
+
+message OrderInfo {
+  string order_id = 1;
+  int64 user_id = 2;
+  OrderStatus status = 3;
+  int64 total_amount_cents = 4;// 总金额（分）
+  repeated OrderItem items = 5;// 订单商品列表（集合/数组）
+  int64 created_at = 6;        // 秒级时间戳
+}
+
+// 5. 接口 1：创建订单（复杂入参 &amp; 出参）
+message CreateOrderRequest {
+  int64 user_id = 1;
+  repeated OrderItem items = 2; // 购买项列表
+  string client_ip = 3;
+  string idempotency_key = 4;   // 幂等 Token（防止重试导致重复下单）
+}
+
+message CreateOrderResponse {
+  BaseResp base_resp = 1;       // 统一错误码/状态
+  string order_id = 2;          // 创建成功的订单号
+  int64 expire_time = 3;        // 支付过期时间
+}
+
+// 6. 接口 2：批量/分页查询订单（分页入参 &amp; 列表出参）
+message QueryOrdersRequest {
+  int64 user_id = 1;
+  OrderStatus filter_status = 2;// 状态筛选
+  int32 page_size = 3;          // 每页数量（默认 20）
+  string page_token = 4;        // 分页游标/Token
+}
+
+message QueryOrdersResponse {
+  BaseResp base_resp = 1;
+  repeated OrderInfo orders = 2;
+  string next_page_token = 3;   // 下一页游标
+  bool has_more = 4;            // 是否还有更多数据
+}
+
+// 7. 服务定义（包含多个 RPC 接口）
+service OrderService {
+  // 创建订单
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+  // 分页查询订单
+  rpc QueryOrders (QueryOrdersRequest) returns (QueryOrdersResponse);
+}
+</code></pre>
+<p>可以看到IDL实际上并没有具体的代码实现，只是显示声明了自己对应什么语言以及参数、接口实现。以Protobuf为例，实际上这个IDL会给到protoc（Protobuf 编译器）。protoc会根据目标编程语言和插件（Plugin）来生成目标语言的原生源代码文件。</p>
+<p>具体有哪些？上面这份，如果是面向go语言编译，</p>
+<pre class="notranslate"><code class="notranslate">protoc --go_out=. --go-grpc_out=. order.proto
+</code></pre>
+<p>会产出：</p>
+<p>1、结构体</p>
+<pre class="notranslate"><code class="notranslate">type CreateOrderRequest struct {
+    UserId         int64        `protobuf:"varint,1,opt,name=user_id,json=userId,proto3"`
+    Items          []*OrderItem `protobuf:"bytes,2,rep,name=items,proto3"`
+    ClientIp       string       `protobuf:"bytes,3,opt,name=client_ip,json=clientIp,proto3"`
+    IdempotencyKey string       `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3"`
+}
+</code></pre>
+<p>2、gRPC的通信骨架</p>
+<p>服务端接口（Server Interface）：</p>
+<pre class="notranslate"><code class="notranslate">type OrderServiceServer interface {
+    CreateOrder(context.Context, *CreateOrderRequest) (*CreateOrderResponse, error)
+    QueryOrders(context.Context, *QueryOrdersRequest) (*QueryOrdersResponse, error)
+    mustEmbedUnimplementedOrderServiceServer()
+}
+</code></pre>
+<p>客户端 Client 桩代码：</p>
+<pre class="notranslate"><code class="notranslate">type OrderServiceClient interface {
+    CreateOrder(ctx context.Context, in *CreateOrderRequest, opts ...grpc.CallOption) (*CreateOrderResponse, error)
+}
+// 实现：内部封装了底层网络封包、发送和接收逻辑
+</code></pre>
+<p>另一种IDL类型：Thrift。</p>
+<p>举例：</p>
+<pre class="notranslate"><code class="notranslate">namespace go order.service
+namespace java com.example.order.service
+
+// 1. 通用响应结构 BaseResp
+struct BaseResp {
+    1: required i32 code,                // 0 表示成功，非 0 表示具体错误码
+    2: required string message,          // 错误信息描述
+    3: optional map&lt;string, string&gt; extra // 追踪/扩展字段
+}
+
+// 2. 订单状态
+enum OrderStatus {
+    PENDING = 1,
+    PAID = 2,
+    CANCELLED = 3
+}
+
+struct OrderItem {
+    1: required i64 sku_id (api.body="sku_id"),
+    2: required i32 quantity (vt.gt="0"),             // 字段校验注解：数量必须 &gt; 0
+    3: required i64 unit_price_cents
+}
+
+// 3. 入参与出参结构
+struct CreateOrderReq {
+    1: required i64 user_id,
+    2: required list&lt;OrderItem&gt; items (vt.min_size="1"), // 至少包含 1 个商品
+    3: optional string remark
+}
+
+struct CreateOrderResp {
+    1: required BaseResp base_resp,
+    2: optional string order_id
+}
+
+// 4. RPC 服务接口
+service OrderService {
+    CreateOrderResp CreateOrder(1: CreateOrderReq req)
+}
+</code></pre>
+<p>相比较，Protobuf仅做了序列化和数据定义，而Thift定义了全部的：从IDL、编解码（Proctocol）到底层TCP读写（Transport）再到多线程并发模型（Server）。</p>
+<p>Go1.8版本后加入了plugin特性，允许主程序动态加载另外一段go代码，即将额外的go代码单独编译成一个动态链接库文件（.so文件），让主程序运行期间动态加载并执行而无需重新编译主程序。</p>
+<p>在压测领域，发压机只需要常驻运行主程序，而发压逻辑可以随时用plugin机制替换，这样可以热替换，提高发压机运行效率。</p>
+<p>对于IDL，直接用git做版本管理是正常的，因为这种文件有天然的代码属性。但是通常存在网络隔离、依赖其他仓库的Thrift/Proto导致解析失败、随分支变动无法精确固定 等问题。现在存在一种专门用于api展示调用的平台，可以使用这种平台，这一段属于封装上层的私有内容，不再赘述。</p></div>
+<div style="font-size:small;margin-top:8px;float:right;"></div>
+
+<button class="btn btn-block" type="button" onclick="openComments()" id="cmButton">评论</button>
+<div class="comments" id="comments"></div>
+
+</div>
+    <div id="footer"><div id="footer1">Copyright © <span id="copyrightYear"></span> <a href="https://zeyqaq.github.io">ZEYQAQ：Share my ideas</a></div>
+<div id="footer2">
+    <span id="runday"></span><span>Powered by <a href="https://meekdai.com/Gmeek.html" target="_blank">Gmeek</a></span>
+</div>
+
+<script>
+var now=new Date();
+document.getElementById("copyrightYear").innerHTML=now.getFullYear();
+
+if(""!=""){
+    var startSite=new Date("");
+    var diff=now.getTime()-startSite.getTime();
+    var diffDay=Math.floor(diff/(1000*60*60*24));
+    document.getElementById("runday").innerHTML="网站运行 "+diffDay+" 天"+" • ";
+}
+</script></div>
+</body>
+<script>
+var IconList={'sun': 'M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8 12a4 4 0 100-8 4 4 0 000 8zM8 0a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V.75A.75.75 0 018 0zm0 13a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 13zM2.343 2.343a.75.75 0 011.061 0l1.06 1.061a.75.75 0 01-1.06 1.06l-1.06-1.06a.75.75 0 010-1.06zm9.193 9.193a.75.75 0 011.06 0l1.061 1.06a.75.75 0 01-1.06 1.061l-1.061-1.06a.75.75 0 010-1.061zM16 8a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0116 8zM3 8a.75.75 0 01-.75.75H.75a.75.75 0 010-1.5h1.5A.75.75 0 013 8zm10.657-5.657a.75.75 0 010 1.061l-1.061 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zm-9.193 9.193a.75.75 0 010 1.06l-1.06 1.061a.75.75 0 11-1.061-1.06l1.06-1.061a.75.75 0 011.061 0z', 'moon': 'M9.598 1.591a.75.75 0 01.785-.175 7 7 0 11-8.967 8.967.75.75 0 01.961-.96 5.5 5.5 0 007.046-7.046.75.75 0 01.175-.786zm1.616 1.945a7 7 0 01-7.678 7.678 5.5 5.5 0 107.678-7.678z', 'sync': 'M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z', 'home': 'M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z', 'github': 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z', 'copy': 'M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z', 'check': 'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z'};
+var utterancesLoad=0;
+
+let themeSettings={
+    "dark": ["dark","moon","#00f0ff","dark-blue"],
+    "light": ["light","sun","#ff5000","github-light"],
+    "auto": ["auto","sync","","preferred-color-scheme"]
+};
+function changeTheme(mode, icon, color, utheme){
+    document.documentElement.setAttribute("data-color-mode",mode);
+    document.getElementById("themeSwitch").setAttribute("d",value=IconList[icon]);
+    document.getElementById("themeSwitch").parentNode.style.color=color;
+    if(utterancesLoad==1){utterancesTheme(utheme);}
+}
+function modeSwitch(){
+    let currentMode=document.documentElement.getAttribute('data-color-mode');
+    let newMode = currentMode === "light" ? "dark" : currentMode === "dark" ? "auto" : "light";
+    localStorage.setItem("meek_theme", newMode);
+    if(themeSettings[newMode]){
+        changeTheme(...themeSettings[newMode]);
+    }
+}
+function utterancesTheme(theme){
+    const message={type:'set-theme',theme: theme};
+    const iframe=document.getElementsByClassName('utterances-frame')[0];
+    iframe.contentWindow.postMessage(message,'https://utteranc.es');
+}
+if(themeSettings[theme]){changeTheme(...themeSettings[theme]);}
+console.log("\n %c Gmeek last https://github.com/Meekdai/Gmeek \n","padding:5px 0;background:#02d81d;color:#fff");
+</script>
+
+<script>
+document.getElementById("pathHome").setAttribute("d",IconList["home"]);
+document.getElementById("pathIssue").setAttribute("d",IconList["github"]);
+
+
+
+function openComments(){
+    cm=document.getElementById("comments");
+    cmButton=document.getElementById("cmButton");
+    cmButton.disabled=true;
+    cmButton.innerHTML="loading";
+    span=document.createElement("span");
+    span.setAttribute("class","AnimatedEllipsis");
+    cmButton.appendChild(span);
+
+    script=document.createElement("script");
+    script.setAttribute("src","https://utteranc.es/client.js");
+    script.setAttribute("repo","ZEYQAQ/zeyqaq.github.io");
+    script.setAttribute("issue-term","title");
+    
+    if(localStorage.getItem("meek_theme")=="dark"){script.setAttribute("theme","dark-blue");}
+    else if(localStorage.getItem("meek_theme")=="light") {script.setAttribute("theme","github-light");}
+    else{script.setAttribute("theme","preferred-color-scheme");}
+    
+    script.setAttribute("crossorigin","anonymous");
+    script.setAttribute("async","");
+    cm.appendChild(script);
+
+    int=self.setInterval("iFrameLoading()",200);
+}
+
+function iFrameLoading(){
+    var utterances=document.getElementsByClassName('utterances');
+    if(utterances.length==1){
+        if(utterances[0].style.height!=""){
+            utterancesLoad=1;
+            int=window.clearInterval(int);
+            document.getElementById("cmButton").style.display="none";
+            console.log("utterances Load OK");
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const createClipboardHTML = (codeContent, additionalClasses = '') => `
+        <pre class="notranslate"><code class="notranslate">${codeContent}</code></pre>
+        <div class="clipboard-container position-absolute right-0 top-0 ${additionalClasses}">
+            <clipboard-copy class="ClipboardButton btn m-2 p-0" role="button" style="display: inherit;">
+                <svg height="16" width="16" class="octicon octicon-copy m-2"><path d="${IconList["copy"]}"></path></svg>
+                <svg height="16" width="16" class="octicon octicon-check color-fg-success m-2 d-none"><path d="${IconList["check"]}"></path></svg>
+            </clipboard-copy>
+            <div class="copy-feedback">Copied!</div>
+        </div>
+    `;
+
+    const handleCodeElements = (selector = '') => {
+        document.querySelectorAll(selector).forEach(codeElement => {
+            const codeContent = codeElement.innerHTML;
+            const newStructure = document.createElement('div');
+            newStructure.className = 'snippet-clipboard-content position-relative overflow-auto';
+            newStructure.innerHTML = createClipboardHTML(codeContent);
+
+            const parentElement = codeElement.parentElement;
+            if (selector.includes('highlight')) {
+                parentElement.insertBefore(newStructure, codeElement.nextSibling);
+                parentElement.removeChild(codeElement);
+            } else {
+                parentElement.parentElement.replaceChild(newStructure, parentElement);
+            }
+        });
+    };
+
+    handleCodeElements('pre.notranslate > code.notranslate');
+    handleCodeElements('div.highlight > pre.notranslate');
+
+    let currentFeedback = null;
+    document.querySelectorAll('clipboard-copy').forEach(copyButton => {
+        copyButton.addEventListener('click', () => {
+            const codeContent = copyButton.closest('.snippet-clipboard-content').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeContent;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyIcon = copyButton.querySelector('.octicon-copy');
+            const checkIcon = copyButton.querySelector('.octicon-check');
+            const copyFeedback = copyButton.nextElementSibling;
+
+            if (currentFeedback && currentFeedback !== copyFeedback) {currentFeedback.style.display = 'none';}
+            currentFeedback = copyFeedback;
+
+            copyIcon.classList.add('d-none');
+            checkIcon.classList.remove('d-none');
+            copyFeedback.style.display = 'block';
+            copyButton.style.borderColor = 'var(--color-success-fg)';
+
+            setTimeout(() => {
+                copyIcon.classList.remove('d-none');
+                checkIcon.classList.add('d-none');
+                copyFeedback.style.display = 'none';
+                copyButton.style.borderColor = '';
+            }, 2000);
+        });
+    });
+});
+
+</script>
+
+
+</html>
